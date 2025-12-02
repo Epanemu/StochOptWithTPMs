@@ -1,0 +1,7 @@
+name: tpm
+tpm:
+  type: spn # or cnet
+  discrete: false
+  n_bins: 10
+  min_instances_slice: 200
+  n_clusters: 2
