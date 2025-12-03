@@ -140,15 +140,10 @@ class NewsvendorProblem(BaseProblem):
             raise ValueError("Model has not been built yet.")
 
         try:
-            # Check if model has been solved
+            # TODO work with pyomo solve status here - infeasible, unbounded, timeout etc. - log that fact in mlflow? retrun it from this function and log it in mlflow in the runner calling this function
             solution = np.array([pyo.value(self.model.x[i]) for i in range(self.n_products)])
-
-            # Handle solve status - check if values are None (infeasible/unsolved)
             if any(v is None for v in solution):
-                raise ValueError(
-                    "Model solution contains None values. Model may be infeasible or not solved yet."
-                )
-
+                raise ValueError("Model solution contains None values. Model may be infeasible.")
             return solution
         except Exception as e:
             raise ValueError(f"Could not extract solution: {e}")
