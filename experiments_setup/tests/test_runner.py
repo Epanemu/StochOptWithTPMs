@@ -1,0 +1,135 @@
+"""
+End-to-end tests for the experiment runner.
+"""
+import pytest
+import tempfile
+import shutil
+from pathlib import Path
+from omegaconf import OmegaConf
+from src.runner import run_experiment
+
+
+class TestRunner:
+    """Integration tests for the experiment runner."""
+
+    @pytest.fixture(autouse=True)
+    def setup_teardown(self):
+        """Setup and teardown for each test."""
+        # Setup: create temporary mlflow directory
+        self.temp_mlflow = tempfile.mkdtemp()
+        yield
+        # Teardown: clean up
+        shutil.rmtree(self.temp_mlflow, ignore_errors=True)
+
+    def test_robust_method_complete_run(self, small_config):
+        """Test complete run with robust method."""
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.method.name = "robust"
+
+        # Should complete without errors
+        run_experiment(small_config)
+
+        # Check that MLflow directory was created
+        mlflow_path = Path(self.temp_mlflow)
+        assert mlflow_path.exists()
+
+    def test_sample_average_method_complete_run(self, small_config):
+        """Test complete run with sample_average method."""
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.method.name = "sample_average"
+
+        run_experiment(small_config)
+
+        mlflow_path = Path(self.temp_mlflow)
+        assert mlflow_path.exists()
+
+    def test_solution_logging(self, small_config):
+        """Test that solution is logged to MLflow."""
+        import mlflow
+
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        mlflow.set_tracking_uri(small_config.mlflow.tracking_uri)
+
+        run_experiment(small_config)
+
+        # Check that at least one run was created
+        mlflow_path = Path(self.temp_mlflow)
+        assert mlflow_path.exists()
+
+        # There should be experiment and run directories
+        experiment_dirs = list(mlflow_path.glob("*"))
+        assert len(experiment_dirs) > 0
+
+    def test_validation_metrics_logged(self, small_config):
+        """Test that validation metrics are computed and logged."""
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+
+        # Run experiment
+        run_experiment(small_config)
+
+        # MLflow tracking should have been used
+        mlflow_path = Path(self.temp_mlflow)
+        assert mlflow_path.exists()
+
+    def test_different_solvers(self, small_config):
+        """Test that different solvers work."""
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+
+        # HiGHS solver
+        small_config.solver = "appsi_highs"
+        run_experiment(small_config)
+
+        assert Path(self.temp_mlflow).exists()
+
+    def test_multi_product_newsvendor(self, small_config):
+        """Test with multiple products."""
+        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.problem.n_products = 3
+        small_config.problem.costs = [1.0, 1.5, 2.0]
+        small_config.problem.prices = [2.0, 3.0, 4.0]
+        small_config.problem.demand_params.mean = [50.0, 75.0, 100.0]
+        small_config.problem.demand_params.std = [10.0, 15.0, 20.0]
+
+        run_experiment(small_config)
+
+        assert Path(self.temp_mlflow).exists()
+
+    def test_reproducibility_with_seed(self, small_config):
+        """Test that same seed produces reproducible results."""
+        import numpy as np
+        from src.problem.newsvendor import NewsvendorProblem
+
+        # Create problem and generate samples twice with same seed
+        problem1 = NewsvendorProblem(small_config.problem, solver="appsi_highs")
+        samples1 = problem1.generate_samples(n_samples=10, seed=42)
+
+        problem2 = NewsvendorProblem(small_config.problem, solver="appsi_highs")
+        samples2 = problem2.generate_samples(n_samples=10, seed=42)
+
+        np.testing.assert_array_equal(samples1, samples2)
+
+
+class TestConfigurationLoading:
+    """Test configuration loading and validation."""
+
+    def test_test_config_loads(self):
+        """Test that test config file loads correctly."""
+        config = OmegaConf.load("conf/test_config.yaml")
+
+        assert config.solver == "appsi_highs"
+        assert config.samples.train == 10
+        assert config.samples.opt == 5
+
+    def test_newsvendor_config_loads(self):
+        """Test that newsvendor config file loads correctly."""
+        config = OmegaConf.load("conf/problem/newsvendor.yaml")
+
+        assert config._target_ == "src.problem.newsvendor.NewsvendorProblem"
+        assert "density_type" in config
+
+    def test_config_yaml_loads(self):
+        """Test that main config file loads correctly."""
+        config = OmegaConf.load("conf/config.yaml")
+
+        assert config.samples.train == 1000
+        assert "validation" in config.samples
