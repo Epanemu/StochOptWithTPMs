@@ -68,12 +68,9 @@ class Binary(Feature):
             )
         vals = vals.flatten()  # TODO put the shape handlings outside, similar to encode
         res = np.empty(vals.shape, dtype=object)
-        # if len(vals.shape) > 1 and vals.shape[1] > 1:
-        #     res[vals[:, 0].astype(bool)] = self.__negative_val
-        #     res[vals[:, 1].astype(bool)] = self.__positive_val
-        # else:
         res[vals == 0] = self.__negative_val
         res[vals == 1] = self.__positive_val
+
         if return_series:
             return pd.Series(res, name=self.name)
         return res

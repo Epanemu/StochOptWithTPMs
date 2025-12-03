@@ -9,7 +9,10 @@ class TPM(ABC):
     Abstract base class for Tractable Probabilistic Models.
     """
 
-    # TODO also pass indices of xi vars - train a marginalized TPM - either marginalize it, or train it only on the respective vars - also store the datahandler in the object so that it can be used in encoding
+    def __init__(self):
+        """Initialize TPM. Subclasses should call super().__init__()."""
+        self.data_handler: Optional[DataHandler] = None
+
     @abstractmethod
     def train(self, data: np.ndarray, data_handler: DataHandler, **kwargs) -> Any:
         """
@@ -18,14 +21,17 @@ class TPM(ABC):
         Args:
             data: Training data (numpy array).
             data_handler: DataHandler object.
-            **kwargs: Hyperparameters.
+            **kwargs: Hyperparameters. Can include:
+                - xi_indices: Indices of xi variables to marginalize (future feature)
 
         Returns:
             self
+
+        Note:
+            Implementations should store data_handler: self.data_handler = data_handler
         """
         pass
 
-    # TODO implement a check for the lenght of inputs corresponding to the length expected by the datahandler - the n_features of the datahandler - if the lenghts are different raise an error
     @abstractmethod
     def encode(self, model_block: pyo.Block, inputs: List[Any], **kwargs) -> Any:
         """
@@ -34,10 +40,15 @@ class TPM(ABC):
         Args:
             model_block: Pyomo Block to add constraints to.
             inputs: List of input variables/values for the TPM.
+                    Use None for marginalized variables.
             **kwargs: Additional arguments.
 
         Returns:
-            Outputs from the encoding (e.g., node values).
+            Output log-likelihood variable.
+
+        Note:
+            Implementations should validate: len(inputs) == self.data_handler.n_features
+            If lengths don't match, raise ValueError.
         """
         pass
 

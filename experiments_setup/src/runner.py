@@ -128,14 +128,17 @@ def run_experiment(cfg: DictConfig) -> None:
         # Get solution vector
         try:
             x_sol = problem.get_solution()
-        except ValueError:
-            log.warning("Could not retrieve solution (model might be infeasible).")
+            # Log solution vector to mlflow
+            solution_dict = {f"x_{i}": float(x_sol[i]) for i in range(len(x_sol))}
+            mlflow.log_dict(solution_dict, "solution.json")
+            log.info(f"Solution: {x_sol}")
+        except ValueError as e:
+            log.warning(f"Could not retrieve solution: {e}")
             return
 
         # Validation on new samples
         val_seed = cfg.seed + 1 # Different seed
-        # TODO add to config
-        n_val = cfg.samples.get("validation", cfg.samples.test) # Default if not in config
+        n_val = cfg.samples.get("validation", cfg.samples.test)
         validation_samples = problem.generate_samples(n_samples=n_val, seed=val_seed)
 
         val_satisfied = problem.check_satisfaction(x_sol, validation_samples)
@@ -150,6 +153,4 @@ def run_experiment(cfg: DictConfig) -> None:
         train_prob_satisfied = np.mean(train_satisfied)
         mlflow.log_metric("train_prob_satisfied", train_prob_satisfied)
         mlflow.log_metric("train_violation_prob", 1 - train_prob_satisfied)
-
-        # TODO log the solution vector to mlflow
 

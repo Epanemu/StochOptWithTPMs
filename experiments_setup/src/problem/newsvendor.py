@@ -22,6 +22,7 @@ class NewsvendorProblem(BaseProblem):
         self.prices = np.array(cfg.prices) if hasattr(cfg, 'prices') else np.zeros(self.n_products)
         self.demand_dist = cfg.demand_dist # "normal", "exponential"
         self.demand_params = cfg.demand_params # dict with mean, std, etc.
+        self.x_density_type = cfg.x_density if hasattr(cfg, 'x_density') else "uniform"
 
     def generate_samples(self, n_samples: int, seed: Optional[int] = None) -> np.ndarray:
         if seed is not None:
@@ -43,7 +44,94 @@ class NewsvendorProblem(BaseProblem):
 
         return np.concatenate(samples, axis=1)
 
-        #  TODO implement the other abstract methods from the base class
+    def generate_decision_samples(self, n_samples: int, seed: Optional[int] = None, **kwargs) -> np.ndarray:
+        """
+        Generate decision variable samples (order quantities).
+
+        Args:
+            n_samples: Number of samples to generate.
+            seed: Random seed.
+            **kwargs: Additional arguments. Can include 'demands' for demand samples to determine bounds.
+
+        Returns:
+            np.ndarray: Decision samples with shape (n_samples, n_products).
+        """
+        if seed is not None:
+            np.random.seed(seed)
+
+        if self.x_density_type == "uniform":
+            # Determine bounds from demand samples if provided
+            demands = kwargs.get('demands', None)
+            if demands is not None:
+                min_demand = np.min(demands, axis=0)
+                max_demand = np.max(demands, axis=0)
+            else:
+                # Use distribution parameters as fallback
+                min_demand = np.zeros(self.n_products)
+                # TODO get the max using the distribution type - e.g. for normal it is mean + 3*std
+                max_demand = np.array([
+                    self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) and len(self.demand_params.mean) == self.n_products else self.demand_params.mean
+                    for i in range(self.n_products)
+                ]) * 2
+
+            # Generate uniform samples in [min_demand, max_demand]
+            x_samples = []
+            self.x_log_density = 0
+            for i in range(self.n_products):
+                x = np.random.uniform(min_demand[i], max_demand[i], size=n_samples)
+                x_samples.append(x.reshape(-1, 1))
+                self.x_log_density -= np.log(max_demand[i] - min_demand[i])
+
+            return np.concatenate(x_samples, axis=1)
+
+    def compute_satisfaction(self, xi: np.ndarray, x: np.ndarray) -> np.ndarray:
+        """
+        Compute satisfaction status for newsvendor constraint: x >= demand.
+
+        Args:
+            xi: Demand samples with shape (n_samples, n_products).
+            x: Decision samples with shape (n_samples, n_products).
+
+        Returns:
+            np.ndarray: Binary column vector (n_samples, 1) where 1 means satisfied.
+        """
+        # Constraint is satisfied if x_j >= xi_j for all products j
+        satisfied = np.all(x >= xi, axis=1, keepdims=True).astype(float)
+        return satisfied
+
+    def get_feature_names(self) -> Tuple[List[str], List[str], str]:
+        """
+        Get feature names for TPM data.
+
+        Returns:
+            Tuple of (xi_names, x_names, sat_name).
+        """
+        xi_names = [f"demand_{i}" for i in range(self.n_products)]
+        x_names = [f"order_{i}" for i in range(self.n_products)]
+        sat_name = "sat"
+        return xi_names, x_names, sat_name
+
+    def get_solution(self) -> np.ndarray:
+        """
+        Extract the solution from the solved model.
+
+        Returns:
+            np.ndarray: Solution vector with shape (n_products,).
+
+        Raises:
+            ValueError: If model is not solved or infeasible.
+        """
+        if self.model is None:
+            raise ValueError("Model has not been built yet.")
+
+        try:
+            # TODO work with solve status here
+            solution = np.array([pyo.value(self.model.x[i]) for i in range(self.n_products)])
+            if any(v is None for v in solution):
+                raise ValueError("Model solution contains None values. Model may be infeasible.")
+            return solution
+        except Exception as e:
+            raise ValueError(f"Could not extract solution: {e}")
 
     def build_model(
         self,
@@ -130,8 +218,15 @@ class NewsvendorProblem(BaseProblem):
             # the tpm encode handles marginalization to P(x, sat)
             output = tpm.encode(model.tpm_block, inputs, **kwargs)
 
-            target_log_prob = np.log(1 - risk_level)
-            # TODO add the density of x here - either from TPM (encoded as another tpm_block and then subtracted from the output since both are log-probabilities) or from known density of x (this can be obtained from this class - it will be used in the generate_decision_samples method - make it uniform over the range of sampled demands for the newsvendor problem) - in that case it should multiply the (1-risk) by the density of x before logging
+            if hasattr(self, "x_log_density"):
+                target_log_prob = np.log(1 - risk_level) + self.x_log_density
+            else:
+                model.x_density_block = pyo.Block()
+                # marginalize out the satisfaction variable as well
+                inputs_x_density = inputs[:-1] + [None]
+                x_density = tpm.encode(model.x_density_block, inputs_x_density, **kwargs)
+
+                target_log_prob = np.log(1 - risk_level) + x_density
 
             model.chance_constr = pyo.Constraint(
                 expr=output >= target_log_prob

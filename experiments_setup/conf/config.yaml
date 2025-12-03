@@ -8,8 +8,9 @@ risk_level: 0.05
 solver: gurobi
 
 samples:
-  train: 1000
   opt: 100
+  train: 1000
+  validation: 5000
   test: 10000
 
 mlflow:

@@ -88,6 +88,46 @@ class BaseProblem(ABC):
         """
         pass
 
+    @abstractmethod
+    def get_feature_names(self) -> Tuple[List[str], List[str], str]:
+        """
+        Get feature names for TPM data.
+
+        Returns:
+            Tuple of (xi_names, x_names, sat_name).
+        """
+        pass
+
+    def check_satisfaction(self, x_sol: np.ndarray, scenarios: np.ndarray) -> np.ndarray:
+        """
+        Check if solution satisfies constraints for given scenarios.
+        This is a wrapper around compute_satisfaction for evaluation purposes.
+
+        Args:
+            x_sol: Solution vector (decision variables).
+            scenarios: Scenario data (xi samples).
+
+        Returns:
+            np.ndarray: Binary array indicating satisfaction for each scenario.
+        """
+        # Expand x_sol to match number of scenarios
+        n_scenarios = scenarios.shape[0]
+        x_expanded = np.tile(x_sol, (n_scenarios, 1))
+        return self.compute_satisfaction(scenarios, x_expanded).flatten()
+
+    @abstractmethod
+    def get_solution(self) -> np.ndarray:
+        """
+        Extract the solution from the solved model.
+
+        Returns:
+            np.ndarray: Solution vector.
+
+        Raises:
+            ValueError: If model is not solved or infeasible.
+        """
+        pass
+
     def generate_tpm_data(self, train_samples: np.ndarray, seed: Optional[int] = None) -> Tuple[np.ndarray, list[str]]:
         """
         Generate training data for TPM (xi, x, sat).
@@ -114,11 +154,9 @@ class BaseProblem(ABC):
         # Combine: [xi, x, sat]
         data = np.concatenate([train_samples, x_samples, sat], axis=1)
 
-        # TODO  return feature names separately using another method
-        # Feature names
-        n_xi = train_samples.shape[1]
-        n_x = x_samples.shape[1]
-        feat_names = [f"xi_{i}" for i in range(n_xi)] + [f"x_{i}" for i in range(n_x)] + ["sat"]
+        # Get feature names from subclass
+        xi_names, x_names, sat_name = self.get_feature_names()
+        feat_names = xi_names + x_names + [sat_name]
 
         return data, feat_names
 
