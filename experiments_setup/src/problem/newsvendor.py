@@ -22,6 +22,10 @@ class NewsvendorProblem(BaseProblem):
         self.prices = np.array(cfg.prices) if hasattr(cfg, 'prices') else np.zeros(self.n_products)
         self.demand_dist = cfg.demand_dist # "normal", "exponential"
         self.demand_params = cfg.demand_params # dict with mean, std, etc.
+        if isinstance(self.demand_params.std, (list, Any)):
+            assert len(self.demand_params.std) == self.n_products
+        if isinstance(self.demand_params.mean, (list, Any)):
+            assert len(self.demand_params.mean) == self.n_products
         self.x_density_type = cfg.x_density if hasattr(cfg, 'x_density') else "uniform"
 
     def generate_samples(self, n_samples: int, seed: Optional[int] = None) -> np.ndarray:
@@ -31,10 +35,10 @@ class NewsvendorProblem(BaseProblem):
         samples = []
         for i in range(self.n_products):
             # Handle per-product parameters if list, else assume shared/scalar
-            mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) and len(self.demand_params.mean) == self.n_products else self.demand_params.mean
+            mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) else self.demand_params.mean
 
             if self.demand_dist == "normal":
-                std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, Any)) and len(self.demand_params.std) == self.n_products else self.demand_params.std
+                std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, Any)) else self.demand_params.std
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
             elif self.demand_dist == "exponential":
                 d = expon.rvs(scale=mean, size=n_samples)
@@ -44,14 +48,15 @@ class NewsvendorProblem(BaseProblem):
 
         return np.concatenate(samples, axis=1)
 
-    def generate_decision_samples(self, n_samples: int, seed: Optional[int] = None, **kwargs) -> np.ndarray:
+    def generate_decision_samples(self, n_samples: int, seed: Optional[int] = None, demands: Optional[np.ndarray] = None, **kwargs) -> np.ndarray:
         """
         Generate decision variable samples (order quantities).
 
         Args:
             n_samples: Number of samples to generate.
             seed: Random seed.
-            **kwargs: Additional arguments. Can include 'demands' for demand samples to determine bounds.
+            demands: Demand samples to determine bounds.
+            **kwargs: Additional arguments.
 
         Returns:
             np.ndarray: Decision samples with shape (n_samples, n_products).
@@ -61,18 +66,28 @@ class NewsvendorProblem(BaseProblem):
 
         if self.x_density_type == "uniform":
             # Determine bounds from demand samples if provided
-            demands = kwargs.get('demands', None)
             if demands is not None:
                 min_demand = np.min(demands, axis=0)
                 max_demand = np.max(demands, axis=0)
             else:
                 # Use distribution parameters as fallback
                 min_demand = np.zeros(self.n_products)
-                # TODO get the max using the distribution type - e.g. for normal it is mean + 3*std
-                max_demand = np.array([
-                    self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) and len(self.demand_params.mean) == self.n_products else self.demand_params.mean
-                    for i in range(self.n_products)
-                ]) * 2
+                # Calculate max based on distribution type
+                max_demand = []
+                for i in range(self.n_products):
+                    mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) else self.demand_params.mean
+                    if self.demand_dist == "normal":
+                        # For normal distribution, use mean + 3*std (covers ~99.7% of values)
+                        std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, Any)) else self.demand_params.std
+                        max_val = mean + 3 * std
+                    elif self.demand_dist == "exponential":
+                        # For exponential,use mean * 3 (covers ~95% of values)
+                        max_val = mean * 3
+                    else:
+                        # Fallback: use mean * 2
+                        max_val = mean * 2
+                    max_demand.append(max_val)
+                max_demand = np.array(max_demand)
 
             # Generate uniform samples in [min_demand, max_demand]
             x_samples = []
@@ -125,10 +140,15 @@ class NewsvendorProblem(BaseProblem):
             raise ValueError("Model has not been built yet.")
 
         try:
-            # TODO work with solve status here
+            # Check if model has been solved
             solution = np.array([pyo.value(self.model.x[i]) for i in range(self.n_products)])
+
+            # Handle solve status - check if values are None (infeasible/unsolved)
             if any(v is None for v in solution):
-                raise ValueError("Model solution contains None values. Model may be infeasible.")
+                raise ValueError(
+                    "Model solution contains None values. Model may be infeasible or not solved yet."
+                )
+
             return solution
         except Exception as e:
             raise ValueError(f"Could not extract solution: {e}")
