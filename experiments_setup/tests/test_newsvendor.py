@@ -3,7 +3,7 @@ Unit tests for the newsvendor problem implementation.
 """
 import pytest
 import numpy as np
-from src.problem.newsvendor import NewsvendorProblem
+from hydra.utils import instantiate
 
 
 class TestNewsvendorProblem:
@@ -11,12 +11,12 @@ class TestNewsvendorProblem:
 
     def test_init(self, newsvendor_config):
         """Test problem initialization."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
         assert problem.n_products == 2
         assert len(problem.costs) == 2
         assert len(problem.prices) == 2
         assert problem.demand_dist == "normal"
-        assert problem.density_type == "uniform"
+        assert problem.x_density_type == "uniform"
 
     def test_generate_samples_normal(self, newsvendor_problem):
         """Test sample generation with normal distribution."""
@@ -34,7 +34,7 @@ class TestNewsvendorProblem:
     def test_generate_samples_exponential(self, newsvendor_config):
         """Test sample generation with exponential distribution."""
         newsvendor_config.demand_dist = "exponential"
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples = problem.generate_samples(n_samples=100, seed=42)
 
@@ -89,10 +89,10 @@ class TestNewsvendorProblem:
         """Test TPM data generation."""
         train_samples = newsvendor_problem.generate_samples(n_samples=20, seed=42)
 
-        tpm_data, feat_names = newsvendor_problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, feat_names = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
 
         # Check shape: [demands (2), orders (2), sat (1)]
-        assert tpm_data.shape == (20, 5)
+        assert tpm_data.shape == (400, 5)
         assert len(feat_names) == 5
         assert feat_names[-1] == "sat"
 
@@ -166,8 +166,8 @@ class TestReproducibility:
     def test_generate_samples_normal_reproducibility(self, newsvendor_config):
         """Test that normal distribution samples are reproducible with same seed."""
         newsvendor_config.demand_dist = "normal"
-        problem1 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
-        problem2 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
@@ -177,7 +177,7 @@ class TestReproducibility:
     def test_generate_samples_normal_different_seeds(self, newsvendor_config):
         """Test that different seeds produce different samples."""
         newsvendor_config.demand_dist = "normal"
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples1 = problem.generate_samples(n_samples=20, seed=42)
         samples2 = problem.generate_samples(n_samples=20, seed=100)
@@ -187,8 +187,8 @@ class TestReproducibility:
     def test_generate_samples_exponential_reproducibility(self, newsvendor_config):
         """Test that exponential distribution samples are reproducible with same seed."""
         newsvendor_config.demand_dist = "exponential"
-        problem1 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
-        problem2 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
@@ -198,7 +198,7 @@ class TestReproducibility:
     def test_generate_samples_exponential_different_seeds(self, newsvendor_config):
         """Test that different seeds produce different exponential samples."""
         newsvendor_config.demand_dist = "exponential"
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples1 = problem.generate_samples(n_samples=20, seed=42)
         samples2 = problem.generate_samples(n_samples=20, seed=100)
@@ -267,8 +267,8 @@ class TestReproducibility:
         """Test that TPM data generation is reproducible."""
         train_samples = newsvendor_problem.generate_samples(n_samples=20, seed=10)
 
-        tpm_data1, feat_names1 = newsvendor_problem.generate_tpm_data(train_samples, seed=42)
-        tpm_data2, feat_names2 = newsvendor_problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data1, feat_names1 = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
+        tpm_data2, feat_names2 = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)
         assert feat_names1 == feat_names2
@@ -282,16 +282,16 @@ class TestReproducibility:
         newsvendor_config.demand_params.std = [10.0, 15.0, 20.0]
         newsvendor_config.demand_dist = "normal"
 
-        problem1 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
-        problem2 = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
 
         np.testing.assert_array_equal(samples1, samples2)
 
-        tpm_data1, feat_names1 = problem1.generate_tpm_data(samples1, seed=42)
-        tpm_data2, feat_names2 = problem2.generate_tpm_data(samples2, seed=42)
+        tpm_data1, feat_names1 = problem1.generate_tpm_data(n_decisions=20, train_samples=samples1, seed=42)
+        tpm_data2, feat_names2 = problem2.generate_tpm_data(n_decisions=20, train_samples=samples2, seed=42)
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)
         assert feat_names1 == feat_names2
@@ -302,14 +302,14 @@ class TestDensityConfiguration:
 
     def test_density_type_uniform(self, newsvendor_config):
         """Test uniform density type setting."""
-        newsvendor_config.density_type = "uniform"
-        problem = NewsvendorProblem(newsvendor_config)
-        assert problem.density_type == "uniform"
+        newsvendor_config.x_density = "uniform"
+        problem = instantiate(newsvendor_config)
+        assert problem.x_density_type == "uniform"
 
     def test_density_type_default(self, newsvendor_config):
         """Test default density type when not specified."""
-        # Remove density_type if present
-        if "density_type" in newsvendor_config:
-            del newsvendor_config.density_type
-        problem = NewsvendorProblem(newsvendor_config)
-        assert problem.density_type == "uniform"
+        # Remove x_density if present
+        if "x_density" in newsvendor_config:
+            del newsvendor_config.x_density
+        problem = instantiate(newsvendor_config)
+        assert problem.x_density_type == "uniform"

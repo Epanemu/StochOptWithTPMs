@@ -7,7 +7,7 @@ import shutil
 from pathlib import Path
 from omegaconf import OmegaConf
 from src.runner import run_experiment
-
+from hydra.utils import instantiate
 
 class TestRunner:
     """Integration tests for the experiment runner."""
@@ -23,7 +23,7 @@ class TestRunner:
 
     def test_robust_method_complete_run(self, small_config):
         """Test complete run with robust method."""
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
         small_config.method.name = "robust"
 
         # Should complete without errors
@@ -35,7 +35,7 @@ class TestRunner:
 
     def test_sample_average_method_complete_run(self, small_config):
         """Test complete run with sample_average method."""
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
         small_config.method.name = "sample_average"
 
         run_experiment(small_config)
@@ -47,7 +47,7 @@ class TestRunner:
         """Test that solution is logged to MLflow."""
         import mlflow
 
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
         mlflow.set_tracking_uri(small_config.mlflow.tracking_uri)
 
         run_experiment(small_config)
@@ -62,7 +62,7 @@ class TestRunner:
 
     def test_validation_metrics_logged(self, small_config):
         """Test that validation metrics are computed and logged."""
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
 
         # Run experiment
         run_experiment(small_config)
@@ -73,7 +73,7 @@ class TestRunner:
 
     def test_different_solvers(self, small_config):
         """Test that different solvers work."""
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
 
         # HiGHS solver
         small_config.solver = "appsi_highs"
@@ -83,7 +83,7 @@ class TestRunner:
 
     def test_multi_product_newsvendor(self, small_config):
         """Test with multiple products."""
-        small_config.mlflow.tracking_uri = f"file://{self.temp_mlflow}"
+        small_config.mlflow.tracking_uri = f"sqlite:///{self.temp_mlflow}/mlflow.db"
         small_config.problem.n_products = 3
         small_config.problem.costs = [1.0, 1.5, 2.0]
         small_config.problem.prices = [2.0, 3.0, 4.0]
@@ -97,13 +97,12 @@ class TestRunner:
     def test_reproducibility_with_seed(self, small_config):
         """Test that same seed produces reproducible results."""
         import numpy as np
-        from src.problem.newsvendor import NewsvendorProblem
 
         # Create problem and generate samples twice with same seed
-        problem1 = NewsvendorProblem(small_config.problem, solver="appsi_highs")
+        problem1 = instantiate(small_config.problem, solver="appsi_highs")
         samples1 = problem1.generate_samples(n_samples=10, seed=42)
 
-        problem2 = NewsvendorProblem(small_config.problem, solver="appsi_highs")
+        problem2 = instantiate(small_config.problem, solver="appsi_highs")
         samples2 = problem2.generate_samples(n_samples=10, seed=42)
 
         np.testing.assert_array_equal(samples1, samples2)
@@ -125,7 +124,8 @@ class TestConfigurationLoading:
         config = OmegaConf.load("conf/problem/newsvendor.yaml")
 
         assert config._target_ == "src.problem.newsvendor.NewsvendorProblem"
-        assert "density_type" in config
+        assert "x_density" in config
+        assert config["x_density"] == "uniform"
 
     def test_config_yaml_loads(self):
         """Test that main config file loads correctly."""

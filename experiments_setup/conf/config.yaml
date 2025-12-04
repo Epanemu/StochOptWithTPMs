@@ -12,9 +12,10 @@ samples:
   train: 1000
   validation: 5000
   test: 10000
+  train_decisions: 1000
 
 mlflow:
-  tracking_uri: "file://./mlruns"
+  tracking_uri: "sqlite:///mlflow.db"  # SQLite database backend (recommended)
   experiment_name: "stochopt_benchmark"
 
 hydra:

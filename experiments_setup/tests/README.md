@@ -48,7 +48,7 @@ pytest tests/ -n auto
 ## CI/CD
 
 Tests run automatically on GitHub Actions for:
-- Python 3.9, 3.10, 3.11
+- Python 3.9, 3.10, 3.11, 3.12, 3.13
 - All pushes and pull requests
 - Coverage reports uploaded to Codecov
 

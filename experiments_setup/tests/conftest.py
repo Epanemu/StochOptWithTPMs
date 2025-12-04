@@ -7,7 +7,7 @@ import os
 from pathlib import Path
 import numpy as np
 from omegaconf import OmegaConf
-
+from hydra.utils import instantiate
 
 @pytest.fixture(scope="session")
 def test_data_dir():
@@ -30,7 +30,7 @@ def small_config():
             "validation": 15
         },
         "mlflow": {
-            "tracking_uri": "file://./test_mlruns",
+            "tracking_uri": "sqlite:///test_mlflow.db",
             "experiment_name": "test_experiment"
         },
         "problem": {
@@ -65,22 +65,21 @@ def newsvendor_config():
             "mean": [50.0, 75.0],
             "std": [10.0, 15.0]
         },
-        "density_type": "uniform"
+        "density_type": "uniform",
     })
 
 
 @pytest.fixture
 def newsvendor_problem(newsvendor_config):
     """Create a newsvendor problem instance."""
-    from src.problem.newsvendor import NewsvendorProblem
-    return NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+    return instantiate(newsvendor_config, solver="appsi_highs")
 
 
 @pytest.fixture
 def sample_demands():
     """Generate sample demand data."""
     np.random.seed(42)
-    return np.random.normal(loc=100, scale=20, size=(10, 1))
+    return np.random.normal(loc=100, scale=20, size=(10, 2))
 
 
 @pytest.fixture

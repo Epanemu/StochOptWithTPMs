@@ -3,7 +3,7 @@ Integration tests for different optimization methods.
 """
 import pytest
 import numpy as np
-from src.problem.newsvendor import NewsvendorProblem
+from hydra.utils import instantiate
 
 
 class TestOptimizationMethods:
@@ -11,7 +11,7 @@ class TestOptimizationMethods:
 
     def test_robust_method_small(self, newsvendor_config):
         """Test robust method with small problem."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate small scenario set
         scenarios = problem.generate_samples(n_samples=5, seed=42)
@@ -31,9 +31,9 @@ class TestOptimizationMethods:
 
     def test_sample_average_method(self, newsvendor_config):
         """Test sample average approximation method."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
-        scenarios = problem.generate_samples(n_samples=10, seed=42)
+        scenarios = problem.generate_samples(n_samples=50, seed=42)
 
         model = problem.build_model(
             method="sample_average",
@@ -58,7 +58,7 @@ class TestOptimizationMethods:
         newsvendor_config.demand_params.mean = [100.0]
         newsvendor_config.demand_params.std = [20.0]
 
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
         scenarios = problem.generate_samples(n_samples=5, seed=42)
 
         problem.build_model(method="robust", scenarios=scenarios)
@@ -70,7 +70,7 @@ class TestOptimizationMethods:
 
     def test_validation_workflow(self, newsvendor_config):
         """Test complete validation workflow."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Training samples
         train_samples = problem.generate_samples(n_samples=20, seed=42)
@@ -95,15 +95,14 @@ class TestTPMOptimization:
 
     def test_spn_method_basic(self, newsvendor_config):
         """Test basic TPM method with SPN."""
-        pytest.importorskip("src.tpms.spn_tpm", reason="SPN TPM not available")
         from src.tpms.spn_tpm import SpnTPM
         from src.data.DataHandler import DataHandler
 
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=50, train_samples=train_samples, seed=42)
 
         # Setup DataHandler
         categ_map = {"sat": [0, 1]}
@@ -129,23 +128,22 @@ class TestTPMOptimization:
         assert hasattr(model, 'tpm_block')
         assert hasattr(model, 'chance_constr')
 
-        model.solve()
-        solution = model.get_solution()
+        problem.solve()
+        solution = problem.get_solution()
 
         assert solution.shape == (2,)
         assert np.all(solution >= 0)
 
     def test_cnet_method_basic(self, newsvendor_config):
         """Test basic TPM method with CNet."""
-        pytest.importorskip("src.tpms.cnet_tpm", reason="CNet TPM not available")
         from src.tpms.cnet_tpm import CNetTPM
         from src.data.DataHandler import DataHandler
 
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=50, train_samples=train_samples, seed=42)
 
         # Setup DataHandler
         categ_map = {"sat": [0, 1]}
@@ -179,7 +177,6 @@ class TestTPMOptimization:
 
     def test_tpm_with_different_risk_levels(self, newsvendor_config):
         """Test TPM with different risk levels."""
-        pytest.importorskip("src.tpms.spn_tpm", reason="SPN TPM not available")
         from src.tpms.spn_tpm import SpnTPM
         from src.data.DataHandler import DataHandler
 
@@ -189,11 +186,11 @@ class TestTPMOptimization:
         newsvendor_config.demand_params.mean = [100.0]
         newsvendor_config.demand_params.std = [20.0]
 
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate and train TPM
         train_samples = problem.generate_samples(n_samples=80, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=80, train_samples=train_samples, seed=42)
         categ_map = {"sat": [0, 1]}
         data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
 
@@ -222,10 +219,10 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_structure(self, newsvendor_config):
         """Test that TPM data has correct structure."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         train_samples = problem.generate_samples(n_samples=30, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=30, train_samples=train_samples, seed=42)
 
         # Verify structure
         n_products = newsvendor_config.n_products
@@ -241,10 +238,10 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_satisfaction_distribution(self, newsvendor_config):
         """Test that TPM data has balanced satisfaction."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         train_samples = problem.generate_samples(n_samples=100, seed=42)
-        tpm_data, _ = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data, _ = problem.generate_tpm_data(n_decisions=100, train_samples=train_samples, seed=42)
 
         # Check satisfaction distribution
         sat_column = tpm_data[:, -1]
@@ -255,12 +252,12 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_reproducibility(self, newsvendor_config):
         """Test that TPM data generation is reproducible with seed."""
-        problem = NewsvendorProblem(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         train_samples = problem.generate_samples(n_samples=20, seed=42)
 
         # Generate twice with same seed
-        tpm_data1, _ = problem.generate_tpm_data(train_samples, seed=42)
-        tpm_data2, _ = problem.generate_tpm_data(train_samples, seed=42)
+        tpm_data1, _ = problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
+        tpm_data2, _ = problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)
