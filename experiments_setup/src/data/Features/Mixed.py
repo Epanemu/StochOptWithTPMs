@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from data.Types import CategValue, OneDimData
+from ..Types import CategValue, OneDimData
 
 from .Categorical import Categorical
 from .Contiguous import Contiguous

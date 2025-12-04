@@ -4,8 +4,9 @@ import pyomo.environ as pyo
 from src.tpms.tpm import TPM
 from src.data.DataHandler import DataHandler
 from src.tpms.CNet.cnet import learn_cnet, build_cnet_milp
-from src.tpms.SPN.structure.Base import Context
-from src.tpms.SPN.structure.leaves.parametric.Parametric import Bernoulli
+
+from spn.structure.Base import Context
+from spn.structure.leaves.parametric.Parametric import Bernoulli
 
 class CNetTPM(TPM):
     def __init__(self):

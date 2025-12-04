@@ -3,7 +3,7 @@ from __future__ import annotations
 import numpy as np
 import pandas as pd
 
-from data.Types import OneDimData
+from ..Types import OneDimData
 
 from .Feature import Feature, Monotonicity
 

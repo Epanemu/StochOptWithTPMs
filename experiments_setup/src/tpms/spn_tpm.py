@@ -54,6 +54,12 @@ class SpnTPM(TPM):
         # TODO: make these standard parameters
         mio_epsilon = kwargs.get("mio_epsilon", 1e-4)
         sum_approx = kwargs.get("sum_approx", "piecewise")
+        # HiGHS does not support SOS constraints, so we use BIGM_BIN instead
+        if sum_approx == "piecewise" and kwargs.get("solver", "") == "appsi_highs":
+            if kwargs.get("encoding_type_exp", "SOS2") == "SOS2":
+                kwargs["encoding_type_exp"] = "BIGM_BIN"
+            if kwargs.get("encoding_type_log", "SOS2") == "SOS2":
+                kwargs["encoding_type_log"] = "BIGM_BIN"
 
         out_vars = encode_spn(
             self.marginalized_model,
@@ -61,7 +67,7 @@ class SpnTPM(TPM):
             inputs,
             mio_epsilon=mio_epsilon,
             sum_approx=sum_approx,
-            lse_kwargs=kwargs,
+            **kwargs,
         )
         return out_vars[self.marginalized_model.out_node_id]
 

@@ -61,7 +61,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
         # 1. Instantiate Problem
         log.info(f"Instantiating problem: {cfg.problem._target_}")
-        problem = instantiate(cfg.problem, cfg=cfg.problem)
+        problem = instantiate(cfg.problem, solver=cfg.solver)
 
         # 2. Generate Data
         log.info(f"Generating {cfg.samples.train} training samples...")
@@ -70,7 +70,7 @@ def run_experiment(cfg: DictConfig) -> None:
         # 3. Setup DataHandler and TPM
         if cfg.method.name == "tpm":
             log.info("Generating TPM training data...")
-            tpm_data, feat_names = problem.generate_tpm_data(train_samples, seed=cfg.seed)
+            tpm_data, feat_names = problem.generate_tpm_data(n_decisions=cfg.samples.train_decisions, train_samples=train_samples, seed=cfg.seed)
 
             categ_map = {"sat": [0, 1]}
             if cfg.method.tpm.discrete:

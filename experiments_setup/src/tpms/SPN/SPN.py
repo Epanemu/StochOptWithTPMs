@@ -10,9 +10,9 @@ from spn.structure.Base import Node as SPFlow_Node
 from spn.structure.Base import Product, Sum, get_topological_order
 from spn.structure.StatisticalTypes import MetaType
 
-from data.DataHandler import DataHandler
-from data.Features import Binary, Categorical, Contiguous, Feature, Mixed
-from data.Types import DataLike
+from src.data.DataHandler import DataHandler
+from src.data.Features import Binary, Categorical, Contiguous, Feature, Mixed
+from src.data.Types import DataLike
 
 
 class NodeType(

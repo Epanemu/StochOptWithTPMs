@@ -3,30 +3,29 @@ from typing import Any, Dict, Optional, Tuple, List
 import numpy as np
 import pyomo.environ as pyo
 from scipy.stats import norm, expon
+from omegaconf import ListConfig
 
 from src.problem.base import BaseProblem
 
-try:
-    from src.tpms.tpm import TPM
-except ImportError:
-    logging.warning("Could not import TPM modules. TPM method will fail if used.")
+from src.tpms.tpm import TPM
+
 
 class NewsvendorProblem(BaseProblem):
     """
     Newsvendor problem implementation.
     """
-    def __init__(self, cfg: Any, solver: str = "gurobi"):
-        super().__init__(cfg, solver)
-        self.n_products = cfg.n_products
-        self.costs = np.array(cfg.costs) if hasattr(cfg, 'costs') else np.ones(self.n_products)
-        self.prices = np.array(cfg.prices) if hasattr(cfg, 'prices') else np.zeros(self.n_products)
-        self.demand_dist = cfg.demand_dist # "normal", "exponential"
-        self.demand_params = cfg.demand_params # dict with mean, std, etc.
-        if isinstance(self.demand_params.std, (list, Any)):
+    def __init__(self, n_products: int, costs: np.ndarray = None, prices: np.ndarray = None, demand_dist: str = "normal", demand_params: Dict[str, Any] = None, x_density_type: str = "uniform", solver: str = "gurobi", **kwargs):
+        super().__init__(solver)
+        self.n_products = n_products
+        self.costs = np.array(costs) if costs is not None else np.ones(self.n_products)
+        self.prices = np.array(prices) if prices is not None else np.zeros(self.n_products)
+        self.demand_dist = demand_dist # "normal", "exponential"
+        self.demand_params = demand_params # dict with mean, std, etc.
+        if isinstance(self.demand_params.std, (list, tuple, np.ndarray, ListConfig)):
             assert len(self.demand_params.std) == self.n_products
-        if isinstance(self.demand_params.mean, (list, Any)):
+        if isinstance(self.demand_params.mean, (list, tuple, np.ndarray, ListConfig)):
             assert len(self.demand_params.mean) == self.n_products
-        self.x_density_type = cfg.x_density if hasattr(cfg, 'x_density') else "uniform"
+        self.x_density_type = x_density_type
 
     def generate_samples(self, n_samples: int, seed: Optional[int] = None) -> np.ndarray:
         if seed is not None:
@@ -35,10 +34,10 @@ class NewsvendorProblem(BaseProblem):
         samples = []
         for i in range(self.n_products):
             # Handle per-product parameters if list, else assume shared/scalar
-            mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) else self.demand_params.mean
+            mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, tuple, np.ndarray, ListConfig)) else self.demand_params.mean
 
             if self.demand_dist == "normal":
-                std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, Any)) else self.demand_params.std
+                std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, tuple, np.ndarray, ListConfig)) else self.demand_params.std
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
             elif self.demand_dist == "exponential":
                 d = expon.rvs(scale=mean, size=n_samples)
@@ -66,6 +65,8 @@ class NewsvendorProblem(BaseProblem):
 
         if self.x_density_type == "uniform":
             # Determine bounds from demand samples if provided
+            if demands is None and 'xi' in kwargs:
+                demands = kwargs['xi']
             if demands is not None:
                 min_demand = np.min(demands, axis=0)
                 max_demand = np.max(demands, axis=0)
@@ -75,10 +76,10 @@ class NewsvendorProblem(BaseProblem):
                 # Calculate max based on distribution type
                 max_demand = []
                 for i in range(self.n_products):
-                    mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, Any)) else self.demand_params.mean
+                    mean = self.demand_params.mean[i] if isinstance(self.demand_params.mean, (list, tuple, np.ndarray, ListConfig)) else self.demand_params.mean
                     if self.demand_dist == "normal":
                         # For normal distribution, use mean + 3*std (covers ~99.7% of values)
-                        std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, Any)) else self.demand_params.std
+                        std = self.demand_params.std[i] if isinstance(self.demand_params.std, (list, tuple, np.ndarray, ListConfig)) else self.demand_params.std
                         max_val = mean + 3 * std
                     elif self.demand_dist == "exponential":
                         # For exponential,use mean * 3 (covers ~95% of values)
@@ -155,6 +156,7 @@ class NewsvendorProblem(BaseProblem):
         data_handler: Any = None,
         scenarios: Optional[np.ndarray] = None,
         risk_level: float = 0.05,
+        epsilon: float = 1e-6,
         **kwargs
     ) -> pyo.ConcreteModel:
 
@@ -195,15 +197,13 @@ class NewsvendorProblem(BaseProblem):
             model.y = pyo.Var(model.nsamples, domain=pyo.Binary) # y=1 if satisfied, 0 otherwise
 
             # Constraint: x >= D if y=1
-            # Big-M formulation: x_j >= d_ij - M(1-y_i)
+            # Big-M formulation: x_j >= d_ij * y_i
             # If y_i=1 (satisfied), x_j >= d_ij.
-            # If y_i=0 (not satisfied), x_j >= d_ij - M (relaxed)
-
-            M = np.max(demands) * 2
+            # If y_i=0 (not satisfied), x_j >= 0
 
             model.chance_constr = pyo.Constraint(
                 model.nsamples, range(self.n_products),
-                rule=lambda m, i, j: m.x[j] >= demands[i, j] - M * (1 - m.y[i])
+                rule=lambda m, i, j: m.x[j] >= demands[i, j] * m.y[i] + epsilon
             )
 
             # Probability constraint: sum(y) >= (1-alpha) * N
@@ -231,7 +231,7 @@ class NewsvendorProblem(BaseProblem):
             # TODO: Handle density of x
 
             # the tpm encode handles marginalization to P(x, sat)
-            output = tpm.encode(model.tpm_block, inputs, **kwargs)
+            output = tpm.encode(model.tpm_block, inputs, solver=self.solver_name, **kwargs)
 
             if hasattr(self, "x_log_density"):
                 target_log_prob = np.log(1 - risk_level) + self.x_log_density
@@ -239,7 +239,7 @@ class NewsvendorProblem(BaseProblem):
                 model.x_density_block = pyo.Block()
                 # marginalize out the satisfaction variable as well
                 inputs_x_density = inputs[:-1] + [None]
-                x_density = tpm.encode(model.x_density_block, inputs_x_density, **kwargs)
+                x_density = tpm.encode(model.x_density_block, inputs_x_density, solver=self.solver_name, **kwargs)
 
                 target_log_prob = np.log(1 - risk_level) + x_density
 

@@ -7,15 +7,13 @@ class BaseProblem(ABC):
     """
     Abstract base class for optimization problems.
     """
-    def __init__(self, cfg: Any, solver: str = "gurobi"):
+    def __init__(self, solver: str = "gurobi"):
         """
         Initialize the problem.
 
         Args:
-            cfg: Hydra configuration object for the problem.
             solver: Name of the solver to use (default: "gurobi").
         """
-        self.cfg = cfg
         self.solver_name = solver
         self.model: Optional[pyo.ConcreteModel] = None
 
@@ -27,6 +25,7 @@ class BaseProblem(ABC):
         data_handler: Any = None,
         scenarios: Optional[np.ndarray] = None,
         risk_level: float = 0.05,
+        epsilon: float = 1e-6,
         **kwargs
     ) -> pyo.ConcreteModel:
         """
@@ -128,11 +127,13 @@ class BaseProblem(ABC):
         """
         pass
 
-    def generate_tpm_data(self, train_samples: np.ndarray, seed: Optional[int] = None) -> Tuple[np.ndarray, list[str]]:
+    # TODO: separate the n_decisions parameter from n_pairing parameter which would choose a subset of decision variables to pair with each training sample of xi
+    def generate_tpm_data(self, n_decisions: int, train_samples: np.ndarray, seed: Optional[int] = None) -> Tuple[np.ndarray, list[str]]:
         """
         Generate training data for TPM (xi, x, sat).
 
         Args:
+            n_decisions: Number of decision samples.
             train_samples: Context samples (xi).
             seed: Random seed.
 
@@ -144,15 +145,21 @@ class BaseProblem(ABC):
 
         n_samples = train_samples.shape[0]
 
-        # Generate x samples
+        # Generate x samples (size n_decisions)
         # We pass train_samples to help determine bounds if needed
-        x_samples = self.generate_decision_samples(n_samples, seed=seed, xi=train_samples)
+        x_samples = self.generate_decision_samples(n_decisions, seed=seed, xi=train_samples)
 
-        # Compute satisfaction
-        sat = self.compute_satisfaction(train_samples, x_samples)
+        # Pair each xi with each x (Cartesian product)
+        # Repeat xi: [xi1, xi1, ..., xi2, xi2, ...]
+        train_samples_expanded = np.repeat(train_samples, n_decisions, axis=0)
+        # Tile x: [x1, x2, ..., x1, x2, ...]
+        x_samples_expanded = np.tile(x_samples, (n_samples, 1))
+
+        # Compute satisfaction on expanded data
+        sat = self.compute_satisfaction(train_samples_expanded, x_samples_expanded)
 
         # Combine: [xi, x, sat]
-        data = np.concatenate([train_samples, x_samples, sat], axis=1)
+        data = np.concatenate([train_samples_expanded, x_samples_expanded, sat], axis=1)
 
         # Get feature names from subclass
         xi_names, x_names, sat_name = self.get_feature_names()

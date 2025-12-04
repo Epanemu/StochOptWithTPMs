@@ -5,7 +5,7 @@ from typing import Optional
 import numpy as np
 import pandas as pd
 
-from data.Features import (
+from .Features import (
     Binary,
     Categorical,
     Contiguous,
@@ -13,7 +13,7 @@ from data.Features import (
     Mixed,
     Monotonicity,
 )
-from data.Types import CategValue, DataLike, FeatureID, OneDimData
+from .Types import CategValue, DataLike, FeatureID, OneDimData
 
 
 class DataHandler:

@@ -109,6 +109,7 @@ def logsumexp_approximation_mip(
     K_log=5,
     encoding_type_exp="SOS2",
     encoding_type_log="SOS2",
+    **kwargs,
 ):
     """
     Adds a piecewise linear MIP approximation of logsumexp()
@@ -204,7 +205,7 @@ def encode_spn(
     leaf_encoding: str = "histogram",
     mio_epsilon: float = 1e-6,
     sum_approx: str = "lower",
-    lse_kwargs: dict | None = None,
+    **kwargs,
 ) -> pyo.Var:
     """Encodes the spn into MIP formulation computing log-likelihood over the input variables
 
@@ -388,8 +389,6 @@ def encode_spn(
 
                 logsumexp_block = pyo.Block()
                 mio_spn.add_component(f"LSE_{node.id}", logsumexp_block)
-                if lse_kwargs is None:
-                    lse_kwargs = {}
 
                 sub_vars = pyo.Var(preds_set, bounds=(-np.inf, 0))
                 mio_spn.add_component(f"sub{node.id}", sub_vars)
@@ -400,7 +399,7 @@ def encode_spn(
                 )
                 mio_spn.add_component(f"MaxSub{node.id}", subtraction)
                 lse = logsumexp_approximation_mip(
-                    logsumexp_block, sub_vars, **lse_kwargs
+                    logsumexp_block, sub_vars, **kwargs
                 )
                 lse_out = pyo.Constraint(
                     expr=mio_spn.node_out[node.id] == max_value + lse
