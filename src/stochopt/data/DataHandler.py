@@ -369,15 +369,15 @@ class DataHandler:
     def encoding_width(self, one_hot: bool) -> int:
         return sum([f.encoding_width(one_hot) for f in self.__input_features])
 
-    def allowed_changes(self, pre_vals, post_vals):
+    def allowed_changes(self, pre_vals: FloatArray, post_vals: FloatArray) -> bool:
         for f, pre, pos in zip(self.features, pre_vals, post_vals):
             if not f.allowed_change(pre, pos):
                 return False
 
         for cause, effect in self.__causal_inc:
             cause_i = self.features.index(cause)
-            pre_cause = cause.encode(pre_vals[cause_i], normalize=False, one_hot=False)
-            pos_cause = cause.encode(post_vals[cause_i], normalize=False, one_hot=False)
+            pre_cause = cause.encode(pre_vals[cause_i], normalize=False, one_hot=False)[0]
+            pos_cause = cause.encode(post_vals[cause_i], normalize=False, one_hot=False)[0]
             if isinstance(cause, Categorical):
                 applied = pos_cause in cause.greater_than(pre_cause)
             elif isinstance(cause, Contiguous):
@@ -386,8 +386,8 @@ class DataHandler:
                 raise ValueError("invalid feature type")
             if applied:
                 effect_i = self.features.index(effect)
-                pre_effect = effect.encode(pre_vals[effect_i], normalize=False, one_hot=False)
-                pos_effect = effect.encode(post_vals[effect_i], normalize=False, one_hot=False)
+                pre_effect = effect.encode(pre_vals[effect_i], normalize=False, one_hot=False)[0]
+                pos_effect = effect.encode(post_vals[effect_i], normalize=False, one_hot=False)[0]
                 if isinstance(effect, Categorical):
                     if pos_effect not in effect.greater_than(pre_effect):
                         return False

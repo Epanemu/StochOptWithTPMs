@@ -1,12 +1,15 @@
 from abc import ABC, abstractmethod
 from typing import Any, Dict, Optional, Tuple, List
 import numpy as np
+import numpy.typing as npt
 import pyomo.environ as pyo
+
 
 class BaseProblem(ABC):
     """
     Abstract base class for optimization problems.
     """
+
     def __init__(self, solver: str = "gurobi"):
         """
         Initialize the problem.
@@ -23,10 +26,10 @@ class BaseProblem(ABC):
         method: str,
         tpm: Any = None,
         data_handler: Any = None,
-        scenarios: Optional[np.ndarray] = None,
+        scenarios: Optional[npt.NDArray[np.float64]] = None,
         risk_level: float = 0.05,
         epsilon: float = 1e-6,
-        **kwargs
+        **kwargs,
     ) -> pyo.ConcreteModel:
         """
         Build the Pyomo model for the problem.
@@ -45,7 +48,9 @@ class BaseProblem(ABC):
         pass
 
     @abstractmethod
-    def generate_samples(self, n_samples: int, seed: Optional[int] = None) -> np.ndarray:
+    def generate_samples(
+        self, n_samples: int, seed: Optional[int] = None
+    ) -> npt.NDArray[np.float64]:
         """
         Generate data samples for the problem.
 
@@ -59,7 +64,9 @@ class BaseProblem(ABC):
         pass
 
     @abstractmethod
-    def generate_decision_samples(self, n_samples: int, seed: Optional[int] = None, **kwargs) -> np.ndarray:
+    def generate_decision_samples(
+        self, n_samples: int, seed: Optional[int] = None, **kwargs
+    ) -> npt.NDArray[np.float64]:
         """
         Generate samples for decision variables (x).
 
@@ -74,7 +81,9 @@ class BaseProblem(ABC):
         pass
 
     @abstractmethod
-    def compute_satisfaction(self, xi: np.ndarray, x: np.ndarray) -> np.ndarray:
+    def compute_satisfaction(
+        self, xi: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.bool_]:
         """
         Compute satisfaction status for given xi and x.
 
@@ -97,7 +106,9 @@ class BaseProblem(ABC):
         """
         pass
 
-    def check_satisfaction(self, x_sol: np.ndarray, scenarios: np.ndarray) -> np.ndarray:
+    def check_satisfaction(
+        self, x_sol: npt.NDArray[np.float64], scenarios: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.bool_]:
         """
         Check if solution satisfies constraints for given scenarios.
         This is a wrapper around compute_satisfaction for evaluation purposes.
@@ -115,7 +126,7 @@ class BaseProblem(ABC):
         return self.compute_satisfaction(scenarios, x_expanded).flatten()
 
     @abstractmethod
-    def get_solution(self) -> np.ndarray:
+    def get_solution(self) -> npt.NDArray[np.float64]:
         """
         Extract the solution from the solved model.
 
@@ -128,7 +139,9 @@ class BaseProblem(ABC):
         pass
 
     # TODO: separate the n_decisions parameter from n_pairing parameter which would choose a subset of decision variables to pair with each training sample of xi
-    def generate_tpm_data(self, n_decisions: int, train_samples: np.ndarray, seed: Optional[int] = None) -> Tuple[np.ndarray, list[str]]:
+    def generate_tpm_data(
+        self, n_decisions: int, train_samples: npt.NDArray[np.float64], seed: Optional[int] = None
+    ) -> Tuple[npt.NDArray[np.float64], list[str]]:
         """
         Generate training data for TPM (xi, x, sat).
 
