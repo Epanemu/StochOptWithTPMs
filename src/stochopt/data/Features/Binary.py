@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -97,8 +97,8 @@ class Binary(Feature):
         return {self.__positive_val: 1, self.__negative_val: 0}
 
     @property
-    def orig_vals(self) -> tuple[CategValue, CategValue]:
-        return self.__negative_val, self.__positive_val
+    def orig_vals(self) -> List[CategValue]:
+        return [self.__negative_val, self.__positive_val]
 
     @property
     def numeric_vals(self):

@@ -237,7 +237,7 @@ class SPN:
 
         return np.array(log_likelihood(self.__mspn, self.__encode_data(data)))
 
-    def compute_max_approx(self, data: DataLike, return_all: bool = False) -> Any:
+    def compute_max_approx(self, data: DataLike) -> float:
         """
         Compute a max-approximation of the log-probability (replacing sums with max).
         """
@@ -246,7 +246,7 @@ class SPN:
 
         input_data = self.__encode_data(data.reshape(1, -1))[0]
 
-        node_vals: dict[int, Any] = {}
+        node_vals: dict[int, float] = {}
         # node_ex_vals = {}
         for node in self.nodes:
             if node.type == NodeType.LEAF:
@@ -279,11 +279,9 @@ class SPN:
 
             node_vals[node.id] = value
 
-        if return_all:
-            return node_vals
         return node_vals[self.__mspn.id]
 
-    def compute_maxpw_approx(self, data: DataLike, return_all: bool = False) -> Any:
+    def compute_maxpw_approx(self, data: DataLike) -> float:
         """
         Compute a maximum piecewise-linear approximation of the log-probability.
         """
@@ -292,7 +290,7 @@ class SPN:
 
         input_data = self.__encode_data(data.reshape(1, -1))[0]
 
-        node_vals: dict[int, Any] = {}
+        node_vals: dict[int, float] = {}
         # node_ex_vals = {}
         for node in self.nodes:
             if node.type == NodeType.LEAF:
@@ -336,11 +334,9 @@ class SPN:
 
             node_vals[node.id] = value
 
-        if return_all:
-            return node_vals
         return node_vals[self.__mspn.id]
 
-    def piecewise_linear(self, x, x_points, y_points):
+    def piecewise_linear(self, x: float, x_points: list[float], y_points: list[float]) -> float:
         """
         Generated function!
         Performs piecewise linear interpolation.
@@ -397,12 +393,14 @@ class SPN:
         slope = (yk1 - yk) / (xk1 - xk)
         return yk + slope * (x - xk)
 
-    def _log_approx(self, val, maxval):
-        x_points = np.logspace(np.log(1), np.log(maxval), num=self.N_PW_BREAKPOINTS, base=np.e)
+    def _log_approx(self, val: float, maxval: float) -> float:
+        x_points = list(
+            np.logspace(np.log(1), np.log(maxval), num=self.N_PW_BREAKPOINTS, base=np.e)
+        )
         y_points = [np.log(x) for x in x_points]
         return self.piecewise_linear(val, x_points, y_points)
 
-    def _exp_approx(self, val):
+    def _exp_approx(self, val: float) -> float:
         # min_val = -4
         # min_val = -3
         min_val = np.log(0.001)

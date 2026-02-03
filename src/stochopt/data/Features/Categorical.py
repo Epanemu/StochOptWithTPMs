@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Optional, List
 
 import numpy as np
 import pandas as pd
@@ -45,11 +45,11 @@ class Categorical(Feature):
         return self.n_categorical_vals
 
     @property
-    def orig_vals(self) -> list[CategValue]:
+    def orig_vals(self) -> List[CategValue]:
         return self.__value_names
 
     @property
-    def numeric_vals(self) -> list[int]:
+    def numeric_vals(self) -> List[int]:
         if self.__ordering is not None:
             return [self.value_mapping[i] for i in self.__ordering]
         else:
