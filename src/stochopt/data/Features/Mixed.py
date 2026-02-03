@@ -1,15 +1,18 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from data.Types import CategValue, OneDimData
+if TYPE_CHECKING:
+    import numpy.typing as npt
+
+from ..Types import CategValue, OneDimData, FloatArray
 
 from .Categorical import Categorical
 from .Contiguous import Contiguous
-from .Feature import Feature, Monotonicity
+from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
 class Mixed(Feature):
@@ -20,7 +23,7 @@ class Mixed(Feature):
         categ_value_names: list[CategValue],
         map_to: Optional[list[float]] = None,
         name: Optional[str] = None,
-        # TODO add the bounds parameter
+        bounds: Optional[tuple[float, float]] = None,
         default_val: float = 0,
         monotone: Monotonicity = Monotonicity.NONE,
         modifiable: bool = True,
@@ -28,7 +31,10 @@ class Mixed(Feature):
         raise NotImplementedError("Mixed Feature is not yet tested.")
         super().__init__(training_vals, name, monotone, modifiable)
         categ_mask = np.isin(training_vals, categ_value_names)
-        self.__categ_value_names = categ_value_names
+        self.__categ_value_names: list[CategValue] = categ_value_names
+        self.__categ_feat: Categorical
+        self.__cont_feat: Contiguous
+        self.__default_val: float
         if map_to is None:
             map_to = -np.arange(len(categ_value_names)) - 1
         self.__categ_feat = Categorical(
@@ -40,7 +46,11 @@ class Mixed(Feature):
             modifiable,
         )
         self.__cont_feat = Contiguous(
-            training_vals[~categ_mask], name, monotone, modifiable
+            training_vals[~categ_mask],
+            name,
+            bounds=bounds,
+            monotone=monotone,
+            modifiable=modifiable,
         )
         self.__default_val = default_val
 
@@ -50,10 +60,8 @@ class Mixed(Feature):
         # TODO, optionally give the range of applicable values (also contiguous)
         # TODO somehow makes sure that the contiguous part is >= 0
 
-    @Feature._check_dims_on_encode
-    def encode(
-        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    @_check_dims_on_encode
+    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         dimension = (1 + self.__categ_feat.n_categorical_vals) if one_hot else 1
         res = np.zeros(
             (vals.shape[0], dimension),
@@ -61,23 +69,17 @@ class Mixed(Feature):
         )
 
         categ_mask = np.isin(vals, self.__categ_value_names)
-        res[~categ_mask, 0] = self.__cont_feat.encode(
-            vals[~categ_mask], normalize, one_hot
-        )
+        res[~categ_mask, 0] = self.__cont_feat.encode(vals[~categ_mask], normalize, one_hot)
         if one_hot:
             res[categ_mask, 0] = self.__default_val
-            res[categ_mask, 1:] = self.__categ_feat.encode(
-                vals[categ_mask], normalize, one_hot
-            )
+            res[categ_mask, 1:] = self.__categ_feat.encode(vals[categ_mask], normalize, one_hot)
         else:
-            res[categ_mask, 0] = self.__categ_feat.encode(
-                vals[categ_mask], normalize, one_hot
-            )
+            res[categ_mask, 0] = self.__categ_feat.encode(vals[categ_mask], normalize, one_hot)
         return res.astype(np.float64)
 
     def decode(
         self,
-        vals: np.ndarray[np.float64],
+        vals: FloatArray,
         denormalize: bool = True,
         return_series: bool = True,
         discretize: bool = False,
@@ -143,5 +145,14 @@ class Mixed(Feature):
         return self.__categ_feat.orig_vals
 
     @property
+    def n_values(self) -> Union[int, float]:
+        return self.__cont_feat.n_values + self.__categ_feat.n_values
+
+    @property
     def numeric_vals(self):
         return self.__categ_feat.numeric_vals
+
+    def allowed_change(self, pre_val: float, post_val: float, encoded: bool = True) -> bool:
+        if self.modifiable:
+            return True
+        return pre_val == post_val

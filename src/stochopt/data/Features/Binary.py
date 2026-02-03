@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from data.Types import CategValue, OneDimData
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
-from .Feature import Feature, Monotonicity
+from ..Types import CategValue, OneDimData, FloatArray
+
+from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
 class Binary(Feature):
@@ -21,7 +24,7 @@ class Binary(Feature):
     ):
         super().__init__(training_vals, name, monotone, modifiable)
         if value_names is None:
-            value_names = np.unique(training_vals)
+            value_names = list(np.unique(training_vals))
         else:
             valid_vals = np.isin(training_vals, value_names)
             if not np.all(valid_vals):
@@ -29,15 +32,13 @@ class Binary(Feature):
                     f"""Incorrect value in a binary feature {self.name}.
                     Values {np.unique(training_vals[~valid_vals])} are not one of {value_names}"""
                 )
+        self.__negative_val: CategValue
+        self.__positive_val: CategValue
         self.__negative_val, self.__positive_val = value_names
-        self._MAD = np.asarray(
-            [1.48 * np.nanstd(self.encode(training_vals, one_hot=False))]
-        )
+        self._MAD = np.asarray([1.48 * np.nanstd(self.encode(training_vals, one_hot=False))])
 
-    @Feature._check_dims_on_encode
-    def encode(
-        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    @_check_dims_on_encode
+    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         positive = vals == self.__positive_val
         if np.any(vals[~positive] != self.__negative_val):
             unknown = vals[~positive] != self.__negative_val
@@ -56,7 +57,7 @@ class Binary(Feature):
 
     def decode(
         self,
-        vals: np.ndarray[np.float64],
+        vals: FloatArray,
         denormalize: bool = True,
         return_series: bool = True,
         discretize: bool = False,
@@ -68,12 +69,9 @@ class Binary(Feature):
             )
         vals = vals.flatten()  # TODO put the shape handlings outside, similar to encode
         res = np.empty(vals.shape, dtype=object)
-        # if len(vals.shape) > 1 and vals.shape[1] > 1:
-        #     res[vals[:, 0].astype(bool)] = self.__negative_val
-        #     res[vals[:, 1].astype(bool)] = self.__positive_val
-        # else:
         res[vals == 0] = self.__negative_val
         res[vals == 1] = self.__positive_val
+
         if return_series:
             return pd.Series(res, name=self.name)
         return res
@@ -82,9 +80,7 @@ class Binary(Feature):
         # return 2 if one_hot else 1
         return 1
 
-    def allowed_change(
-        self, pre_val: CategValue, post_val: CategValue, encoded=True
-    ) -> bool:
+    def allowed_change(self, pre_val: CategValue, post_val: CategValue, encoded=True) -> bool:
         if not encoded:
             pre_val = self.encode([pre_val], one_hot=False)[0]
             post_val = self.encode([post_val], one_hot=False)[0]
@@ -99,3 +95,15 @@ class Binary(Feature):
     @property
     def value_mapping(self) -> dict[CategValue, int]:
         return {self.__positive_val: 1, self.__negative_val: 0}
+
+    @property
+    def orig_vals(self) -> tuple[CategValue, CategValue]:
+        return self.__negative_val, self.__positive_val
+
+    @property
+    def numeric_vals(self):
+        return [0, 1]
+
+    @property
+    def n_values(self) -> int:
+        return 2

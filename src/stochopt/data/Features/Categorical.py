@@ -1,13 +1,16 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import TYPE_CHECKING, Optional, Union
 
 import numpy as np
 import pandas as pd
 
-from ..Types import CategValue, OneDimData
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
-from .Feature import Feature, Monotonicity
+from ..Types import CategValue, OneDimData, FloatArray
+
+from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
 class Categorical(Feature):
@@ -15,7 +18,7 @@ class Categorical(Feature):
         self,
         training_vals: OneDimData,
         value_names: Optional[list[CategValue]] = None,
-        map_to: Optional[list[float]] = None,
+        map_to: Optional[list[int]] = None,
         ordering: list[CategValue] | None = None,  # TODO separate into subclass?
         name: Optional[str] = None,
         monotone: Monotonicity = Monotonicity.NONE,
@@ -23,46 +26,50 @@ class Categorical(Feature):
     ):
         super().__init__(training_vals, name, monotone, modifiable)
         if value_names is None:
-            value_names = np.unique(training_vals)
+            value_names = list(np.unique(training_vals))
         if map_to is None:
             map_to = list(range(len(value_names)))
         self.__value_names = value_names
         self.__mapped_to = map_to
-        self._MAD = np.asarray(
-            1.48 * np.nanstd(self.encode(training_vals, one_hot=True), axis=0)
-        )
+        self._MAD = np.asarray(1.48 * np.nanstd(self.encode(training_vals, one_hot=True), axis=0))
         if ordering is not None and len(ordering) != len(value_names):
             raise ValueError("Ordering is not complete")
-        self.__ordering = ordering
+        self.__ordering: list[CategValue] | None = ordering
 
     @property
-    def n_categorical_vals(self):
+    def n_categorical_vals(self) -> int:
         return len(self.__value_names)
 
     @property
-    def orig_vals(self):
+    def n_values(self) -> int:
+        return self.n_categorical_vals
+
+    @property
+    def orig_vals(self) -> list[CategValue]:
         return self.__value_names
 
     @property
-    def numeric_vals(self):
+    def numeric_vals(self) -> list[int]:
         if self.__ordering is not None:
             return [self.value_mapping[i] for i in self.__ordering]
         else:
             return self.__mapped_to
 
-    @Feature._check_dims_on_encode
-    def encode(
-        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    @_check_dims_on_encode
+    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         masks = np.zeros_like(vals, dtype=bool)
-        res = [] if one_hot else np.empty_like(vals)
-        for val, mapped in zip(self.__value_names, self.__mapped_to):
-            mask = vals == val
-            if one_hot:
-                res.append(np.array(mask).reshape(-1, 1))
-            else:
+        if one_hot:
+            res = np.zeros((vals.shape[0], self.n_categorical_vals), dtype=np.float64)
+            for val, mapped in zip(self.__value_names, self.__mapped_to):
+                mask = vals == val
+                res[mask, mapped] = 1.0
+                masks |= mask
+        else:
+            res = np.empty_like(vals, dtype=np.float64)
+            for val, mapped in zip(self.__value_names, self.__mapped_to):
+                mask = vals == val
                 res[mask] = mapped
-            masks |= mask
+                masks |= mask
         if not np.all(masks):
             raise ValueError(
                 f"""Incorrect value in a categorical feature {self.name}.
@@ -70,13 +77,11 @@ class Categorical(Feature):
                     are not one of {self.__value_names}."""
             )
 
-        if one_hot:
-            return np.concatenate(res, axis=1, dtype=np.float64)
-        return res.astype(np.float64)
+        return res
 
     def decode(
         self,
-        vals: np.ndarray[np.float64],
+        vals: FloatArray,
         denormalize: bool = True,
         return_series: bool = True,
         discretize: bool = False,
@@ -106,13 +111,13 @@ class Categorical(Feature):
         return 1
 
     @property
-    def value_mapping(self):
-        return {
-            val: mapped for val, mapped in zip(self.__value_names, self.__mapped_to)
-        }
+    def value_mapping(self) -> dict[CategValue, int]:
+        return {val: mapped for val, mapped in zip(self.__value_names, self.__mapped_to)}
 
     def lower_than(self, num_val: int) -> list[int]:
-        lower = []
+        if self.__ordering is None:
+            return []
+        lower: list[int] = []
         for v in self.__ordering:
             if self.value_mapping[v] == num_val:
                 break
@@ -120,7 +125,9 @@ class Categorical(Feature):
         return lower
 
     def greater_than(self, num_val: int) -> list[int]:
-        greater = []
+        if self.__ordering is None:
+            return []
+        greater: list[int] = []
         adding = False
         for v in self.__ordering:
             if adding:
@@ -129,17 +136,15 @@ class Categorical(Feature):
                 adding = True
         return greater
 
-    def allowed_change(
-        self, pre_val: CategValue, post_val: CategValue, encoded=True
-    ) -> bool:
+    def allowed_change(self, pre_val: CategValue, post_val: CategValue, encoded=True) -> bool:
         if not encoded:
             pre_val = self.encode([pre_val], one_hot=False)[0]
             post_val = self.encode([post_val], one_hot=False)[0]
         if self.modifiable:
             if self.monotone == Monotonicity.INCREASING:
-                return post_val in self.greater_than(pre_val) or post_val == pre_val
+                return post_val in self.greater_than(int(pre_val)) or post_val == pre_val
             if self.monotone == Monotonicity.DECREASING:
-                return post_val in self.lower_than(pre_val) or post_val == pre_val
+                return post_val in self.lower_than(int(pre_val)) or post_val == pre_val
             return True
         return pre_val == post_val
 

@@ -1,7 +1,8 @@
+from typing import Any, Union, List
 import numpy as np
 import pyomo.environ as pyo
 
-from .SPN import SPN, NodeType
+from .spn import SPN, NodeType
 
 # from scipy.special import logsumexp
 
@@ -49,6 +50,24 @@ def encode_histogram_as_pwl(
     out_var: pyo.Var,
     encoding_type: str = "LOG",
 ) -> pyo.Piecewise:
+    """
+    Encodes a histogram as a piecewise-linear function in Pyomo.
+
+    Args:
+        breaks: list[float]
+            List of histogram breakpoints.
+        vals: list[float]
+            List of histogram density values (log-space).
+        in_var: pyo.Var
+            The input variable.
+        out_var: pyo.Var
+            The output variable.
+        encoding_type: str
+            The piecewise-linear representation type (e.g., "LOG", "SOS2").
+
+    Returns:
+        pyo.Piecewise: The Pyomo Piecewise component.
+    """
     breakpoints = [breaks[0]]
     for b in breaks[1:-1]:
         breakpoints += [b, b]
@@ -75,7 +94,10 @@ def encode_histogram(
     out_var: pyo.Var,
     mio_block: pyo.Block,
     mio_epsilon: float,
-):
+) -> None:
+    """
+    Encodes a histogram into a MIP formulation using binary indicator variables.
+    """
     n_bins = len(vals)
     M = max(1, breaks[-1] - breaks[0])
 
@@ -91,32 +113,47 @@ def encode_histogram(
     )
     mio_block.upper = pyo.Constraint(
         mio_block.bins,
-        rule=lambda b, bin_i: b.not_in_bin[bin_i] * M
-        >= in_var - breaks[bin_i + 1] + mio_epsilon,
+        rule=lambda b, bin_i: b.not_in_bin[bin_i] * M >= in_var - breaks[bin_i + 1] + mio_epsilon,
     )
 
     mio_block.output = pyo.Constraint(
-        expr=sum((1 - mio_block.not_in_bin[i]) * vals[i] for i in range(n_bins))
-        == out_var
+        expr=sum((1 - mio_block.not_in_bin[i]) * vals[i] for i in range(n_bins)) == out_var
     )
 
 
-def logsumexp_approximation_mip(block, x_vars, L=0.001, K_exp=5, K_log=5, encoding_type_exp="SOS2", encoding_type_log="SOS2"):
+def logsumexp_approximation_mip(
+    block: pyo.Block,
+    x_vars: Union[pyo.Var, List[pyo.Var]],
+    L: float = 0.001,
+    K_exp: int = 5,
+    K_log: int = 5,
+    encoding_type_exp: str = "SOS2",
+    encoding_type_log: str = "SOS2",
+    **kwargs: Any,
+) -> pyo.Var:
     """
-    Adds a piecewise linear MIP approximation of logsumexp()
-    function to a Pyomo model.
+    Adds a piecewise linear MIP approximation of logsumexp() function to a
+    Pyomo model.
 
-    It assumes that the max was already subtracted
-    (there is at least one x_i=0 and no strictly positive x)
+    Assumes that the max was already subtracted (at least one x_i=0 and all x_i <= 0).
 
     Args:
-        model (pyo.ConcreteModel): The Pyomo model to which variables and
-                                   constraints will be added.
-        x_vars (pyo.VarData or list): A Pyomo indexed Var or list of VarData
-                                      objects representing the 'x_i' inputs.
-        L (float): The lowest value to consider in exp, all lower will be 0
-        K_exp (int): The number of *breakpoints* for the exp(x_i) approximation. This will create K_exp-1 segments.
-        K_log (int): The number of *breakpoints* for the log() approximation. This will create K_log-1 segments.
+        block: pyo.Block
+            The Pyomo block to which variables and constraints will be added.
+        x_vars: Union[pyo.Var, List[pyo.Var]]
+            A Pyomo indexed Var or list of VarData objects representing the 'x_i' inputs.
+        L: float
+            The lowest value to consider in exp, all lower will be 0 (default 0.001).
+        K_exp: int
+            The number of breakpoints for the exp(x_i) approximation (default 5).
+        K_log: int
+            The number of breakpoints for the log() approximation (default 5).
+        encoding_type_exp: str
+            The piecewise-linear representation type for exp (default "SOS2").
+        encoding_type_log: str
+            The piecewise-linear representation type for log (default "SOS2").
+        **kwargs: Any
+            Additional arguments.
 
     Returns:
         pyo.Var: The Pyomo variable 'lse' representing log(sum(exp(x_i))).
@@ -130,7 +167,7 @@ def logsumexp_approximation_mip(block, x_vars, L=0.001, K_exp=5, K_log=5, encodi
         # If passed a list of VarData, create a set
         x_set = pyo.RangeSet(1, len(x_vars))
         # And map them to a dictionary for consistent access
-        x_vars_dict = {i: x_vars[i-1] for i in x_set}
+        x_vars_dict = {i: x_vars[i - 1] for i in x_set}
         x_vars = x_vars_dict
 
     N = len(x_set)
@@ -143,15 +180,16 @@ def logsumexp_approximation_mip(block, x_vars, L=0.001, K_exp=5, K_log=5, encodi
     if K_log < 2:
         raise ValueError("K_log must be at least 2.")
 
-
-    x_breakpoints = np.logspace(np.log(0.3), np.log(-np.log(L)), num=K_exp-1, base=np.e).tolist()
+    x_breakpoints = np.logspace(np.log(0.3), np.log(-np.log(L)), num=K_exp - 1, base=np.e).tolist()
     x_breakpoints.insert(0, 0)
     x_breakpoints = [-v for v in reversed(x_breakpoints)]
     x_breakpoints[0] = np.log(L)
     x_breakpoints[-1] = 0
     y_breakpoints = np.exp(x_breakpoints)
 
-    block.exp_vals = pyo.Var(x_set, bounds=(0, 1), within=pyo.NonNegativeReals, doc="w_i >= exp(x_i)")
+    block.exp_vals = pyo.Var(
+        x_set, bounds=(0, 1), within=pyo.NonNegativeReals, doc="w_i >= exp(x_i)"
+    )
 
     block.pw_constr = pyo.Piecewise(
         x_set,
@@ -160,7 +198,7 @@ def logsumexp_approximation_mip(block, x_vars, L=0.001, K_exp=5, K_log=5, encodi
         pw_pts=[-500, x_breakpoints[0]] + list(x_breakpoints),
         pw_constr_type="EQ",
         pw_repn=encoding_type_exp,
-        f_rule=[0,0] + list(y_breakpoints),
+        f_rule=[0, 0] + list(y_breakpoints),
         unbounded_domain_var=True,
     )
 
@@ -183,31 +221,37 @@ def logsumexp_approximation_mip(block, x_vars, L=0.001, K_exp=5, K_log=5, encodi
     )
     return block.lse
 
+
 def encode_spn(
     spn: SPN,
     mio_spn: pyo.Block,
-    input_vars: list[list[pyo.Var] | pyo.Var],
+    input_vars: list[Any],
     leaf_encoding: str = "histogram",
     mio_epsilon: float = 1e-6,
     sum_approx: str = "lower",
-    lse_kwargs: dict | None = None,
+    **kwargs: Any,
 ) -> pyo.Var:
-    """Encodes the spn into MIP formulation computing log-likelihood over the input variables
+    """
+    Encodes the SPN into a MIP formulation computing log-likelihood.
 
     Args:
-        spn (SPN): The SPN to model
-        mio_spn (pyo.Block): Pyomo block used to model the spn
-        input_vars (list[list[pyo.Var]  |  pyo.Var]): Variables representing the SPN inputed. List of variables (possibly one-hot encoded in the same ordering as SPN bins)
-        leaf_encoding (str, optional): either "histogram" or one of the values for piece-wise linear function approximation within Pyomo library (see https://pyomo.readthedocs.io/en/stable/pyomo_modeling_components/Expressions.html#piecewise-linear-expressions). Defaults to "histogram".
-        mio_epsilon (float, optional): the minimal change between values (for numerical stability), used for sharp inequalities. Defaults to 1e-6.
-        TODO add sum_approx
-
-    # Raises:
-    #     AssertionError: _description_
-    #     ValueError: _description_
+        spn: SPN
+            The trained SPN model.
+        mio_spn: pyo.Block
+            The Pyomo block to add variables and constraints to.
+        input_vars: list[Any]
+            List of Pyomo variables representing inputs.
+        leaf_encoding: str
+            Method for encoding leaves ("histogram" or a pwl type, default "histogram").
+        mio_epsilon: float
+            Tolerance for sharp inequalities (default 1e-6).
+        sum_approx: str
+            Approximation for sum nodes ("upper", "lower", or "piecewise", default "lower").
+        **kwargs: Any
+            Additional encoding hyperparameters (e.g., K_exp, K_log).
 
     Returns:
-        pyo.Var: Indexed pyomo variable containing node outputs, indexed by node ids
+        pyo.Var: Indexed Pyomo variable `node_out` containing log-likelihoods per node.
     """
     node_ids = [node.id for node in spn.nodes]
 
@@ -248,7 +292,7 @@ def encode_spn(
             #     density_vals = density_vals + [spn.min_density]
 
             breakpoints, densities = node.get_breaks_densities(span_all=True)
-            log_densities = np.log(densities)
+            log_densities = [np.log(d) for d in densities]
 
             if leaf_encoding == "histogram":
                 hist_block = pyo.Block()
@@ -263,8 +307,8 @@ def encode_spn(
                 )
             else:
                 pw_constr = encode_histogram_as_pwl(
-                    breakpoints,
-                    log_densities,
+                    list(breakpoints),
+                    list(log_densities),
                     in_var,
                     mio_spn.node_out[node.id],
                     leaf_encoding,
@@ -288,8 +332,7 @@ def encode_spn(
 
             constr = pyo.Constraint(
                 rule=lambda b: (
-                    b.node_out[node.id]
-                    == sum(var * dens for var, dens in zip(in_vars, dens_ll))
+                    b.node_out[node.id] == sum(var * dens for var, dens in zip(in_vars, dens_ll))
                 )
             )
             mio_spn.add_component(f"CategLeaf{node.id}", constr)
@@ -305,8 +348,7 @@ def encode_spn(
         elif node.type == NodeType.PRODUCT:
             constr = pyo.Constraint(
                 rule=lambda b: (
-                    b.node_out[node.id]
-                    == sum(b.node_out[ch.id] for ch in node.predecessors)
+                    b.node_out[node.id] == sum(b.node_out[ch.id] for ch in node.predecessors)
                 )
             )
             mio_spn.add_component(f"ProdConstr{node.id}", constr)
@@ -325,9 +367,7 @@ def encode_spn(
                     preds_set,
                     rule=lambda b, pre_id: (
                         b.node_out[node.id]
-                        <= b.node_out[pre_id]
-                        + np.log(weights[pre_id])
-                        + M_sum * slack_inds[pre_id]
+                        <= b.node_out[pre_id] + np.log(weights[pre_id]) + M_sum * slack_inds[pre_id]
                     ),
                 )
             elif sum_approx == "upper":
@@ -366,35 +406,28 @@ def encode_spn(
                     preds_set,
                     rule=lambda b, pre_id: (
                         max_value
-                        <= b.node_out[pre_id]
-                        + np.log(weights[pre_id])
-                        + M_sum * slack_inds[pre_id]
+                        <= b.node_out[pre_id] + np.log(weights[pre_id]) + M_sum * slack_inds[pre_id]
                     ),
                 )
 
                 logsumexp_block = pyo.Block()
                 mio_spn.add_component(f"LSE_{node.id}", logsumexp_block)
-                if lse_kwargs is None:
-                    lse_kwargs = {}
 
                 sub_vars = pyo.Var(preds_set, bounds=(-np.inf, 0))
                 mio_spn.add_component(f"sub{node.id}", sub_vars)
                 subtraction = pyo.Constraint(
                     preds_set,
-                    rule=lambda b, pre_id: sub_vars[pre_id] == b.node_out[pre_id] + np.log(weights[pre_id]) - max_value
+                    rule=lambda b, pre_id: sub_vars[pre_id]
+                    == b.node_out[pre_id] + np.log(weights[pre_id]) - max_value,
                 )
                 mio_spn.add_component(f"MaxSub{node.id}", subtraction)
-                lse = logsumexp_approximation_mip(logsumexp_block, sub_vars, **lse_kwargs)
-                lse_out = pyo.Constraint(
-                    expr=mio_spn.node_out[node.id] == max_value + lse
-                )
+                lse = logsumexp_approximation_mip(logsumexp_block, sub_vars, **kwargs)
+                lse_out = pyo.Constraint(expr=mio_spn.node_out[node.id] == max_value + lse)
                 mio_spn.add_component(f"LSE_node_out{node.id}", lse_out)
             else:
                 raise ValueError('sum_approx must be one of ["upper", "lower", "piecewise"]')
             mio_spn.add_component(f"SumSlackConstr{node.id}", slacking)
-            one_tight = pyo.Constraint(
-                expr=sum(slack_inds[i] for i in preds_set) == n_preds - 1
-            )
+            one_tight = pyo.Constraint(expr=sum(slack_inds[i] for i in preds_set) == n_preds - 1)
             mio_spn.add_component(f"SumTightConstr{node.id}", one_tight)
 
             # implemented using SOS1 constraints, see here: https://www.gurobi.com/documentation/current/refman/general_constraints.html

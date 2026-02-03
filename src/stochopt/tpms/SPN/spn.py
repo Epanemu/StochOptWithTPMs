@@ -2,17 +2,19 @@ from enum import Enum
 from typing import Any
 
 import numpy as np
+import pandas as pd
 from spn.algorithms.Inference import EPSILON, log_likelihood
 from spn.algorithms.LearningWrappers import learn_mspn
+from spn.algorithms.Marginalization import marginalize
 from spn.structure.Base import Context, Leaf
 from spn.structure.Base import Node as SPFlow_Node
 from spn.structure.Base import Product, Sum, get_topological_order
 from spn.structure.StatisticalTypes import MetaType
-from spn.algorithms.Marginalization import marginalize
 
-from data.DataHandler import DataHandler
-from data.Features import Binary, Categorical, Contiguous, Feature, Mixed
-from data.Types import DataLike
+from stochopt.data.DataHandler import DataHandler
+from stochopt.data.Features import Binary, Categorical, Contiguous, Feature, Mixed
+from stochopt.data.Types import DataLike
+from numpy.typing import NDArray
 
 
 class NodeType(
@@ -54,7 +56,11 @@ class Node:
             else:
                 self.type = NodeType.LEAF
                 # print(node.id, node.breaks, node.densities)
-                self.discrete = self.feature.discrete
+                if isinstance(self.feature, Contiguous):
+                    self.discrete = self.feature.discrete
+                else:
+                    self.discrete = False
+
                 if self.discrete:
                     self.breaks = [b - 0.5 for b in node.breaks]
                 else:
@@ -90,7 +96,7 @@ class Node:
 
     def get_breaks_densities(
         self, span_all=True, get_normalized=False
-    ) -> tuple[np.ndarray[float], np.ndarray[float]]:
+    ) -> tuple[list[float], list[float]]:
         """Retruns the breakpoints (rescaled to 0-1 range if get_normalized=True)
 
         Args:
@@ -125,7 +131,7 @@ class Node:
         if not self.__normalize and get_normalized:
             breaks = self.feature.encode(breaks, normalize=True, one_hot=False)
 
-        return np.array(breaks), np.array(density_vals)
+        return list(breaks), list(density_vals)
 
 
 class SPN:
@@ -137,13 +143,30 @@ class SPN:
         data_handler: DataHandler,
         normalize_data: bool = False,
         include_target: bool = False,
-        # trunk-ignore(ruff/B006)
         learn_mspn_kwargs: dict[str, Any] = {},
-    ):
+    ) -> None:
+        """
+        Initialize and train a Sum-Product Network.
+
+        Args:
+            data: DataLike
+                The training data.
+            data_handler: DataHandler
+                The data handler for feature metadata.
+            normalize_data: bool (default: False)
+                Whether to normalize data during encoding.
+            include_target: bool (default: False)
+                Whether to include the target feature in the model.
+            learn_mspn_kwargs: dict[str, Any]
+                Additional arguments for the learn_mspn function (e.g., min_instances_slice, n_clusters).
+        """
         types = []
         domains = []
         if include_target:
-            self.__feature_list = data_handler.features + [data_handler.target_feature]
+            target = data_handler.target_feature
+            if target is None:
+                raise ValueError("include_target is True but DataHandler has no target feature.")
+            self.__feature_list: list[Feature] = data_handler.features + [target]
         else:
             self.__feature_list = data_handler.features
         self.__include_target = include_target
@@ -189,32 +212,41 @@ class SPN:
             for node in get_topological_order(self.__mspn)
         ]
 
-    def __encode_data(self, data: DataLike):
+    def __encode_data(self, data: DataLike) -> NDArray[np.float64]:
+        """
+        Encode the input data using the data handler.
+        """
         if self.__include_target:
-            return self.__data_handler.encode_all(
+            res = self.__data_handler.encode_all(
                 data, normalize=self.__normalize_data, one_hot=False
             )
         else:
-            return self.__data_handler.encode(
-                data, normalize=self.__normalize_data, one_hot=False
-            )
+            res = self.__data_handler.encode(data, normalize=self.__normalize_data, one_hot=False)
 
+        if isinstance(res, pd.Series):
+            np_res: NDArray[np.float64] = res.to_numpy()
+            return np_res
+        return np.array(res)
 
-    def compute_ll(self, data: DataLike):
-        if len(data.shape) == 1:
-            return self.compute_ll(data.reshape(1, -1))[0]
-        return log_likelihood(
-            self.__mspn,
-            self.__encode_data(data)
-        )
+    def compute_ll(self, data: DataLike) -> NDArray[np.float64]:
+        """
+        Compute the log-likelihood of the given data.
+        """
+        if isinstance(data, np.ndarray) and len(data.shape) == 1:
+            return self.compute_ll(data.reshape(1, -1))
 
-    def compute_max_approx(self, data: DataLike, return_all: bool = False):
+        return np.array(log_likelihood(self.__mspn, self.__encode_data(data)))
+
+    def compute_max_approx(self, data: DataLike, return_all: bool = False) -> Any:
+        """
+        Compute a max-approximation of the log-probability (replacing sums with max).
+        """
         if len(data.shape) != 1 or (data.shape[0] != 1 and len(data.shape) == 2):
             raise ValueError("Can do only one sample, so far...")
 
         input_data = self.__encode_data(data.reshape(1, -1))[0]
 
-        node_vals = {}
+        node_vals: dict[int, Any] = {}
         # node_ex_vals = {}
         for node in self.nodes:
             if node.type == NodeType.LEAF:
@@ -238,8 +270,7 @@ class SPN:
             if node.type == NodeType.SUM:
                 # print("Sum", [node_vals[n.id] for n in node.predecessors])
                 value = max(
-                    node_vals[n.id] + np.log(w)
-                    for n, w in zip(node.predecessors, node.weights)
+                    node_vals[n.id] + np.log(w) for n, w in zip(node.predecessors, node.weights)
                 )
                 # node_ex_vals[node.id] = logsumexp(
                 #     np.array([node_ex_vals[p.id] for p in node.predecessors]),
@@ -252,13 +283,16 @@ class SPN:
             return node_vals
         return node_vals[self.__mspn.id]
 
-    def compute_maxpw_approx(self, data: DataLike, maxlog: int, return_all: bool = False):
+    def compute_maxpw_approx(self, data: DataLike, return_all: bool = False) -> Any:
+        """
+        Compute a maximum piecewise-linear approximation of the log-probability.
+        """
         if len(data.shape) != 1 or (data.shape[0] != 1 and len(data.shape) == 2):
             raise ValueError("Can do only one sample, so far...")
 
         input_data = self.__encode_data(data.reshape(1, -1))[0]
 
-        node_vals = {}
+        node_vals: dict[int, Any] = {}
         # node_ex_vals = {}
         for node in self.nodes:
             if node.type == NodeType.LEAF:
@@ -281,14 +315,16 @@ class SPN:
                 # )
             if node.type == NodeType.SUM:
                 # print("Sum", [node_vals[n.id] for n in node.predecessors])
-                vals = np.array([node_vals[n.id] + np.log(w) for n, w in zip(node.predecessors, node.weights)])
+                vals = np.array(
+                    [node_vals[n.id] + np.log(w) for n, w in zip(node.predecessors, node.weights)]
+                )
                 max_value = vals.max()
                 expvals = []
                 for v in vals:
                     expval = self._exp_approx(v - max_value)
                     # print(" exp:", v, v-max_value, expval)
                     expvals.append(expval)
-                logval = self._log_approx(sum(expvals), maxlog)
+                logval = self._log_approx(sum(expvals), vals.shape[0])
                 # print("LOG:", sum(expvals), logval)
                 # print()
                 value = max_value + logval
@@ -361,7 +397,6 @@ class SPN:
         slope = (yk1 - yk) / (xk1 - xk)
         return yk + slope * (x - xk)
 
-
     def _log_approx(self, val, maxval):
         x_points = np.logspace(np.log(1), np.log(maxval), num=self.N_PW_BREAKPOINTS, base=np.e)
         y_points = [np.log(x) for x in x_points]
@@ -369,11 +404,14 @@ class SPN:
 
     def _exp_approx(self, val):
         # min_val = -4
-        min_val = -3
+        # min_val = -3
+        min_val = np.log(0.001)
         if val < min_val:
-            return 0 # do not approximate those where numerical inaccuracy would play a major role anyways
+            return 0  # do not approximate those where numerical inaccuracy would play a major role anyways
         # x_points = np.linspace(min_val, 0.0, self.N_PW_BREAKPOINTS).tolist()
-        x_points = np.logspace(np.log(0.1), np.log(-min_val), num=self.N_PW_BREAKPOINTS-1, base=np.e).tolist()
+        x_points = np.logspace(
+            np.log(0.3), np.log(-min_val), num=self.N_PW_BREAKPOINTS - 1, base=np.e
+        ).tolist()
         # x_points = np.logspace(np.log(0.5), np.log(-min_val), num=self.N_PW_BREAKPOINTS-1, base=np.e).tolist()
         x_points.insert(0, 0)
         x_points = [-v for v in reversed(x_points)]
@@ -392,11 +430,11 @@ class SPN:
 
     @property
     def min_density(self) -> float:
-        return EPSILON
+        return float(EPSILON)
 
     @property
-    def out_node_id(self) -> float:
-        return self.__mspn.id
+    def out_node_id(self) -> int:
+        return int(self.__mspn.id)
 
     @property
     def spn_model(self):
@@ -407,7 +445,6 @@ class SPN:
             return 1
         else:
             return self.__data_handler.features[feature_i]._scale
-
 
     def marginalize(self, indices_to_keep: list[int]) -> None:
         self.__mspn = marginalize(self.__mspn, indices_to_keep)

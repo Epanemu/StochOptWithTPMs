@@ -4,8 +4,9 @@ from typing import Optional
 
 import numpy as np
 import pandas as pd
+import logging
 
-from data.Features import (
+from .Features import (
     Binary,
     Categorical,
     Contiguous,
@@ -13,7 +14,9 @@ from data.Features import (
     Mixed,
     Monotonicity,
 )
-from data.Types import CategValue, DataLike, FeatureID, OneDimData
+from .Types import CategValue, DataLike, FeatureID, OneDimData, FloatArray
+
+log = logging.getLogger(__name__)
 
 
 class DataHandler:
@@ -73,7 +76,7 @@ class DataHandler:
         """
         if isinstance(X, pd.DataFrame):
             if feature_names is None:
-                feature_names = X.columns
+                feature_names = list(X.columns)
             if target_name is not None:
                 print("Taking target values from the X matrix")
                 y = X[target_name]
@@ -83,12 +86,12 @@ class DataHandler:
         if y is not None:
             if target_name is None:
                 if isinstance(y, pd.Series):
-                    target_name = y.name
+                    target_name = str(y.name)
                 else:
                     target_name = "target"
 
             if regression:
-                self.__target_feature = Contiguous(y, target_name)
+                self.__target_feature: Feature | None = Contiguous(y, target_name)
             else:
                 if len(np.unique(y)) > 2:
                     self.__target_feature = Categorical(y, name=target_name)
@@ -100,7 +103,8 @@ class DataHandler:
 
         n_features = X.shape[1]
         if feature_names is None:
-            feature_names = [None] * n_features
+            feature_names = [f"feat_{i}" for i in range(n_features)]
+            log.warning("No feature names provided, using default names.")
         if len(feature_names) != n_features:
             raise ValueError("Incorrect length of list of feature names.")
 
@@ -122,15 +126,15 @@ class DataHandler:
 
         self.__causal_inc = [
             (
-                self.__input_features[self.feature_names.index(i)],
-                self.__input_features[self.feature_names.index(j)],
+                self.__input_features[feature_names.index(str(i))],
+                self.__input_features[feature_names.index(str(j))],
             )
             for i, j in causal_inc
         ]
         self.__greater_than = [
             (
-                self.__input_features[self.feature_names.index(i)],
-                self.__input_features[self.feature_names.index(j)],
+                self.__input_features[feature_names.index(str(i))],
+                self.__input_features[feature_names.index(str(j))],
             )
             for i, j in greater_than
         ]
@@ -146,12 +150,12 @@ class DataHandler:
     def __make_feature(
         self,
         data: OneDimData,
-        feat_name: Optional[str],
+        feat_name: str,
         categ_vals: Optional[list[CategValue]],
-        real_bounds: Optional[list[CategValue]],
+        real_bounds: Optional[tuple[float, float]],
         ordered: bool,
         discrete: bool,
-        monotone: bool,
+        monotone: Monotonicity,
         modifiable: bool,
     ) -> Feature:
         if categ_vals is None:
@@ -199,9 +203,7 @@ class DataHandler:
                         data, name=feat_name, monotone=monotone, modifiable=modifiable
                     )
                 else:
-                    return Binary(
-                        data, name=feat_name, monotone=monotone, modifiable=modifiable
-                    )
+                    return Binary(data, name=feat_name, monotone=monotone, modifiable=modifiable)
 
     @property
     def n_features(self) -> int:
@@ -214,7 +216,7 @@ class DataHandler:
         return self.__input_features
 
     @property
-    def target_feature(self) -> Feature:
+    def target_feature(self) -> Feature | None:
         """Target feature"""
         return self.__target_feature
 
@@ -223,9 +225,7 @@ class DataHandler:
         """List of feature names"""
         return [f.name for f in self.__input_features]
 
-    def encode(
-        self, X: DataLike, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    def encode(self, X: DataLike, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         """
         Encode input features.
 
@@ -250,19 +250,15 @@ class DataHandler:
 
         if len(X.shape) == 1:
             Xmat = X.reshape(1, -1)
-            return self.encode(Xmat, normalize=normalize, one_hot=one_hot)[0]
+            return self.encode(Xmat, normalize=normalize, one_hot=one_hot)
 
-        enc = []
+        enc = np.empty((X.shape[0], self.encoding_width(one_hot)), dtype=np.float64)
         for feat_i, feature in enumerate(self.__input_features):
-            enc.append(
-                feature.encode(X[:, feat_i], normalize, one_hot).reshape(X.shape[0], -1)
-            )
+            enc[:, feat_i] = feature.encode(X[:, feat_i], normalize, one_hot)
 
-        return np.concatenate(enc, axis=1).astype(np.float64)
+        return enc
 
-    def encode_y(
-        self, y: OneDimData, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    def encode_y(self, y: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         """
         Encode target feature.
 
@@ -280,24 +276,34 @@ class DataHandler:
         encoded_y : numpy array
             Encoded target feature. Shape: (num_samples, num_values) for one hot encoding or (num_samples,) otherwise
         """
+        if self.__target_feature is None:
+            raise ValueError("No target feature available.")
         return self.__target_feature.encode(y, normalize, one_hot)
 
-    def encode_all(self, X_all: np.ndarray, normalize: bool, one_hot: bool):
+    def encode_all(self, X_all: DataLike, normalize: bool, one_hot: bool) -> FloatArray:
         return np.concatenate(
             [
-                self.encode(X_all[:, :-1], normalize, one_hot),
-                self.encode_y(X_all[:, -1], normalize, one_hot).reshape(-1, 1),
+                self.encode(
+                    X_all.iloc[:, :-1] if isinstance(X_all, pd.DataFrame) else X_all[:, :-1],
+                    normalize,
+                    one_hot,
+                ),
+                self.encode_y(
+                    X_all.iloc[:, -1] if isinstance(X_all, pd.DataFrame) else X_all[:, -1],
+                    normalize,
+                    one_hot,
+                ).reshape(-1, 1),
             ],
             axis=1,
         )
 
     def decode(
         self,
-        X: np.ndarray[np.float64],
+        X: FloatArray,
         denormalize: bool = True,
         encoded_one_hot: bool = True,
         as_dataframe: bool = True,
-    ) -> np.ndarray[np.float64]:
+    ) -> DataLike:
         """
         Decode input features.
 
@@ -326,20 +332,18 @@ class DataHandler:
         curr_col = 0
         for feature in self.__input_features:
             w = feature.encoding_width(encoded_one_hot)
-            dec.append(
-                feature.decode(X[:, curr_col : curr_col + w], denormalize, as_dataframe)
-            )
+            dec.append(feature.decode(X[:, curr_col : curr_col + w], denormalize, as_dataframe))
             curr_col += w
         if as_dataframe:
-            return pd.concat(dec, axis=1)
-        return np.concatenate([x.reshape(X.shape[0], -1) for x in dec], axis=1)
+            return pd.concat([pd.Series(d) for d in dec], axis=1)
+        return np.concatenate([d.reshape(X.shape[0], -1) for d in dec], axis=1)
 
     def decode_y(
         self,
-        y: np.ndarray[np.float64],
+        y: FloatArray,
         denormalize: bool = True,
         as_series: bool = True,
-    ) -> np.ndarray[np.float64]:
+    ) -> OneDimData:
         """
         Decode target feature.
 
@@ -358,6 +362,8 @@ class DataHandler:
         decoded_y : numpy array
             Decoded target feature data. Shape: (num_samples,)
         """
+        if self.__target_feature is None:
+            raise ValueError("No target feature available.")
         return self.__target_feature.decode(y, denormalize, as_series)
 
     def encoding_width(self, one_hot: bool) -> int:
@@ -380,12 +386,8 @@ class DataHandler:
                 raise ValueError("invalid feature type")
             if applied:
                 effect_i = self.features.index(effect)
-                pre_effect = effect.encode(
-                    pre_vals[effect_i], normalize=False, one_hot=False
-                )
-                pos_effect = effect.encode(
-                    post_vals[effect_i], normalize=False, one_hot=False
-                )
+                pre_effect = effect.encode(pre_vals[effect_i], normalize=False, one_hot=False)
+                pos_effect = effect.encode(post_vals[effect_i], normalize=False, one_hot=False)
                 if isinstance(effect, Categorical):
                     if pos_effect not in effect.greater_than(pre_effect):
                         return False
@@ -396,10 +398,7 @@ class DataHandler:
                     raise ValueError("invalid feature type")
 
         for greater, smaller in self.__greater_than:
-            if (
-                post_vals[self.features.index(smaller)]
-                > post_vals[self.features.index(greater)]
-            ):
+            if post_vals[self.features.index(smaller)] > post_vals[self.features.index(greater)]:
                 return False
         return True
 

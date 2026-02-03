@@ -1,11 +1,16 @@
 from __future__ import annotations
 
+from typing import TYPE_CHECKING, Optional, Union
+
 import numpy as np
 import pandas as pd
 
-from data.Types import OneDimData
+if TYPE_CHECKING:
+    import numpy.typing as npt
 
-from .Feature import Feature, Monotonicity
+from ..Types import OneDimData, FloatArray
+
+from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
 class Contiguous(Feature):
@@ -43,16 +48,14 @@ class Contiguous(Feature):
             if self._MAD[0] == 0:
                 self._MAD[0] = 1
 
-    def __normalize(self, vals):
+    def __normalize(self, vals: FloatArray) -> FloatArray:
         return (vals - self._shift) / self._scale
 
-    def __denormalize(self, vals):
+    def __denormalize(self, vals: FloatArray) -> FloatArray:
         return vals * self._scale + self._shift
 
-    @Feature._check_dims_on_encode
-    def encode(
-        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
-    ) -> np.ndarray[np.float64]:
+    @_check_dims_on_encode
+    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
         if isinstance(vals, pd.Series):
             vals = vals.to_numpy()
         if normalize:
@@ -61,7 +64,7 @@ class Contiguous(Feature):
 
     def decode(
         self,
-        vals: np.ndarray[np.float64],
+        vals: FloatArray,
         denormalize: bool = True,
         return_series: bool = True,
         discretize: bool = True,
@@ -84,6 +87,13 @@ class Contiguous(Feature):
     @property
     def discrete(self) -> bool:
         return self.__discrete
+
+    @property
+    def n_values(self) -> Union[int, float]:
+        if self.discrete:
+            return int(self.__bounds[1] - self.__bounds[0] + 1)
+        else:
+            return float("inf")
 
     def allowed_change(self, pre_val: float, post_val: float, encoded=True) -> bool:
         if self.modifiable:
