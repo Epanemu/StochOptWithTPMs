@@ -4,6 +4,7 @@ import os
 import time
 from typing import Any
 import numpy as np
+import numpy.typing as npt
 import mlflow
 import hydra
 from hydra.utils import instantiate
@@ -13,6 +14,7 @@ from omegaconf import DictConfig
 sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from stochopt.data.DataHandler import DataHandler
+from stochopt.data.Types import DataLike
 
 # Import TPM trainers
 try:
@@ -25,28 +27,40 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
-def train_tpm(cfg: DictConfig, data: np.ndarray, data_handler: DataHandler) -> Any:
+def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM:
     """
     Train a TPM (SPN or CNet) on the provided data.
     """
-    if cfg.method.tpm.type == "spn":
+    tpm_cfg = cfg.method
+    tpm_name = tpm_cfg.name
+
+    encoded_data = data_handler.encode(data)
+
+    if tpm_name == "spn":
         log.info("Training SPN...")
-        tpm: TPM = SpnTPM()
+        tpm: TPM = SpnTPM(data_handler)
         tpm.train(
-            data,
-            data_handler,
-            min_instances_slice=cfg.method.tpm.min_instances_slice,
-            n_clusters=cfg.method.tpm.n_clusters,
+            encoded_data,
+            min_instances_slice=tpm_cfg.min_instances_slice,
+            n_clusters=tpm_cfg.n_clusters,
         )
         return tpm
 
-    elif cfg.method.tpm.type == "cnet":
+    elif tpm_name == "cnet":
         log.info("Training CNet...")
-        tpm = CNetTPM()
-        tpm.train(data, data_handler, min_instances_slice=cfg.method.tpm.min_instances_slice)
+        tpm = CNetTPM(data_handler)
+        # Extract CNet specific params
+        tpm.train(
+            encoded_data,
+            min_instances_slice=tpm_cfg.min_instances_slice,
+            max_depth=tpm_cfg.max_depth,
+            discretization_method=tpm_cfg.discretization_method,
+            n_bins=tpm_cfg.n_bins,
+        )
         return tpm
+
     else:
-        raise ValueError(f"Unknown TPM type: {cfg.method.tpm.type}")
+        raise ValueError(f"Unknown TPM name: {tpm_name}")
 
 
 def run_experiment(cfg: DictConfig) -> None:
@@ -93,7 +107,7 @@ def run_experiment(cfg: DictConfig) -> None:
             train_samples = problem.generate_samples(n_samples=cfg.samples.train, seed=cfg.seed)
 
             # 3. Setup DataHandler and TPM
-            if cfg.method.name == "tpm":
+            if cfg.method.get("type") == "tpm":
                 log.info("Generating TPM training data...")
                 tpm_data, feat_names = problem.generate_tpm_data(
                     n_decisions=cfg.samples.train_decisions,
@@ -102,10 +116,6 @@ def run_experiment(cfg: DictConfig) -> None:
                 )
 
                 categ_map: dict[int | str, list[int | str]] = {"sat": [0, 1]}
-                if cfg.method.tpm.discrete:
-                    raise NotImplementedError(
-                        "Discretization/binning for continuous xi and x is not yet implemented."
-                    )
 
                 data_handler = DataHandler(
                     tpm_data, y=None, categ_map=categ_map, feature_names=feat_names
@@ -134,8 +144,13 @@ def run_experiment(cfg: DictConfig) -> None:
                 opt_samples = None
 
             build_start_time = time.time()
+
+            build_method_name = cfg.method.name
+            if cfg.method.get("type") == "tpm":
+                build_method_name = "tpm"
+
             model = problem.build_model(
-                method=cfg.method.name,
+                method=build_method_name,
                 tpm=tpm,
                 data_handler=data_handler,
                 scenarios=opt_samples,
@@ -221,7 +236,7 @@ def run_experiment(cfg: DictConfig) -> None:
                 log.info(f"P(x_sol) from true TPM: {np.exp(p_x_sol - problem.x_log_density)}")
                 # TODO make this somehow neat? also above, passing cfg is not ideal
                 # TODO check also the division by p(x) if not uniform
-                p_x_sol_approx = tpm.probability_approx(x_sol, **cfg.method.tpm)
+                p_x_sol_approx = tpm.probability_approx(x_sol, **cfg.method)
                 mlflow.log_metric(
                     "approx_tpm_prob_satisfied", np.exp(p_x_sol_approx - problem.x_log_density)
                 )

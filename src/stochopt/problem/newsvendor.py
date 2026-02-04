@@ -50,14 +50,14 @@ class NewsvendorProblem(BaseProblem):
             # Handle per-product parameters if list, else assume shared/scalar
             mean = (
                 self.demand_params["mean"][i]
-                if isinstance(self.demand_params["mean"], (list, tuple, npt.NDArray, ListConfig))
+                if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig))
                 else self.demand_params["mean"]
             )
 
             if self.demand_dist == "normal":
                 std = (
                     self.demand_params["std"][i]
-                    if isinstance(self.demand_params["std"], (list, tuple, npt.NDArray, ListConfig))
+                    if isinstance(self.demand_params["std"], (list, tuple, np.ndarray, ListConfig))
                     else self.demand_params["std"]
                 )
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
@@ -107,7 +107,7 @@ class NewsvendorProblem(BaseProblem):
                     mean = (
                         self.demand_params["mean"][i]
                         if isinstance(
-                            self.demand_params["mean"], (list, tuple, npt.NDArray, ListConfig)
+                            self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig)
                         )
                         else self.demand_params["mean"]
                     )
@@ -116,7 +116,7 @@ class NewsvendorProblem(BaseProblem):
                         std = (
                             self.demand_params["std"][i]
                             if isinstance(
-                                self.demand_params["std"], (list, tuple, npt.NDArray, ListConfig)
+                                self.demand_params["std"], (list, tuple, np.ndarray, ListConfig)
                             )
                             else self.demand_params["std"]
                         )

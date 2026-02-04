@@ -107,7 +107,7 @@ class Node:
             AssertionError: If the feature bounds are not available
 
         Returns:
-            tuple[np.ndarray[float], np.ndarray[float]]: Breakpoints, Density values
+            tuple[list[float], list[float]]: Breakpoints, Density values
         """
         if not hasattr(self, "feature") or not isinstance(self.feature, Contiguous):
             raise ValueError("Only available to leaves over contiguous features")

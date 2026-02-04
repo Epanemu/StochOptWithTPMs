@@ -1,5 +1,6 @@
 from typing import Any, List, Optional, Union
 import numpy as np
+import numpy.typing as npt
 import pyomo.environ as pyo
 from stochopt.tpms.tpm import TPM
 from stochopt.data.DataHandler import DataHandler
@@ -17,23 +18,20 @@ class SpnTPM(TPM):
     SPN-based TPM implementation.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, data_handler: DataHandler) -> None:
         """
         Initialize the SpnTPM.
         """
-        super().__init__()
+        super().__init__(data_handler)
         self.model: SPN | None = None
-        self.data_handler: DataHandler | None = None
 
-    def train(self, data: np.ndarray, data_handler: DataHandler, **kwargs: Any) -> "SpnTPM":
+    def train(self, data: npt.NDArray[np.float64], **kwargs: Any) -> "SpnTPM":
         """
         Train the Sum-Product Network (SPN).
 
         Args:
-            data: np.ndarray
+            data: npt.NDArray[np.float64]
                 The training data.
-            data_handler: DataHandler
-                The data handler for feature metadata.
             **kwargs: Any
                 - min_instances_slice: int (default 200)
                 - n_clusters: int (default 2)
@@ -45,12 +43,9 @@ class SpnTPM(TPM):
         min_instances_slice = kwargs.get("min_instances_slice", 200)
         n_clusters = kwargs.get("n_clusters", 2)
 
-        # Store data_handler for later use in encoding
-        self.data_handler = data_handler
-
         self.model = SPN(
             data,
-            data_handler,
+            self.data_handler,
             normalize_data=False,
             learn_mspn_kwargs={
                 "min_instances_slice": min_instances_slice,
@@ -62,7 +57,7 @@ class SpnTPM(TPM):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, np.ndarray, List[pyo.Var]]]],
+        inputs: List[Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]],
         solver: Optional[str] = None,
         **kwargs: Any,
     ) -> pyo.Var:
@@ -72,7 +67,7 @@ class SpnTPM(TPM):
         Args:
             model_block: pyo.Block
                 The Pyomo block.
-            inputs: List[Optional[Union[pyo.Var, float, np.ndarray, List[pyo.Var]]]]
+            inputs: List[Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]]
                 The input list for features.
             solver: Optional[str]
                 The solver to use. Used to adjust encoding for specific solvers like appsi_highs.
@@ -124,7 +119,7 @@ class SpnTPM(TPM):
         )
         return out_vars[self.marginalized_model.out_node_id]
 
-    def probability(self, sample: np.ndarray, **kwargs: Any) -> float:
+    def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate the exact log-probability.
         """
@@ -149,12 +144,12 @@ class SpnTPM(TPM):
 
         return float(self.marginalized_model.compute_ll(sample)[0])
 
-    def probability_approx(self, sample: np.ndarray, **kwargs: Any) -> float:
+    def probability_approx(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate an approximate log-probability.
 
         Args:
-            sample: np.ndarray
+            sample: npt.NDArray[np.float64]
                 The input sample.
             **kwargs: Any
                 - sum_approx: str ("piecewise" or "lower", default "piecewise")

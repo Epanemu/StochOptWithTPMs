@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, Union
+from typing import Any, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -11,8 +11,7 @@ CategValue = Union[int, str]
 DataLike = Union[npt.NDArray[Any], pd.DataFrame]
 FeatureID = Union[int, str]
 
-if TYPE_CHECKING:
-    FloatArray = npt.NDArray[np.float64]
-    IntArray = npt.NDArray[np.int_]
-    BoolArray = npt.NDArray[np.bool_]
-    AnyArray = npt.NDArray[Any]
+FloatArray = npt.NDArray[np.float64]
+IntArray = npt.NDArray[np.int_]
+BoolArray = npt.NDArray[np.bool_]
+AnyArray = npt.NDArray[Any]

@@ -21,21 +21,19 @@ class CNetTPM(TPM):
     discretized using binning strategies before training and encoding.
     """
 
-    def __init__(self) -> None:
+    def __init__(self, data_handler: DataHandler) -> None:
         """
         Initialize the CNetTPM.
         """
-        super().__init__()
+        super().__init__(data_handler)
         self.model: Optional[DecisionNode | LeafNode] = None
         self.root_id: Optional[int] = None
         self.discretization_info: Dict[int, Dict[str, Any]] = {}
-        self.data_handler: Optional[DataHandler] = None
 
     # TODO check / fix this
     def train(
         self,
         data: npt.NDArray[np.float64],
-        data_handler: DataHandler,
         discretization_method: Literal["uniform", "quantile", "kmeans"] = "quantile",
         n_bins: int = 10,
         **kwargs: Any,
@@ -46,8 +44,6 @@ class CNetTPM(TPM):
         Args:
             data: npt.NDArray[np.float64]
                 The training data.
-            data_handler: DataHandler
-                The data handler for feature metadata.
             discretization_method: Literal["uniform", "quantile", "kmeans"]
                 Method to discretize continuous variables ("uniform", "quantile", "kmeans", default "quantile").
             n_bins: int
@@ -62,11 +58,10 @@ class CNetTPM(TPM):
         max_depth = kwargs.get("max_depth", 10)
 
         # Discretize continuous features
-        self.data_handler = data_handler
         discretized_data = self._discretize_data(data, discretization_method, n_bins)
 
         categ_map: dict[int | str, list[int | str]] = {}
-        for i, feature in enumerate(data_handler.features):
+        for i, feature in enumerate(self.data_handler.features):
             if i in self.discretization_info:
                 categ_map[feature.name] = list(range(self.discretization_info[i]["n_bins"]))
             elif isinstance(feature, (Categorical, Binary)):
@@ -76,7 +71,7 @@ class CNetTPM(TPM):
         self.discrete_data_handler = DataHandler(
             discretized_data,
             categ_map=categ_map,
-            feature_names=[feature.name for feature in data_handler.features],
+            feature_names=self.data_handler.feature_names,
         )
 
         # CNet works with categorical/discrete features
