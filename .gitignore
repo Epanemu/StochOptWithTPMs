@@ -26,3 +26,7 @@ test_outputs/
 *~
 .mypy_cache/
 .ipynb_checkpoints/
+tmp_scripts/
+guides/
+.old/
+mlflow_scripts/

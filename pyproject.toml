@@ -4,6 +4,7 @@ testpaths = ["tests"]
 python_files = ["test_*.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
+pythonpath = ["src"]
 addopts = """
     -v
     --strict-markers
@@ -18,7 +19,7 @@ markers = [
 ]
 
 [tool.coverage.run]
-source = ["src"]
+source = ["stochopt"]
 omit = [
     "*/tests/*",
     "*/__init__.py",
@@ -39,7 +40,7 @@ exclude_lines = [
 
 [tool.black]
 line-length = 100
-target-version = ['py39', 'py310', 'py311', 'py312', 'py313']
+target-version = ['py39', 'py310', 'py311', 'py312']
 include = '\\.pyi?$'
 exclude = '''
 /(
@@ -51,7 +52,11 @@ exclude = '''
 '''
 
 [tool.mypy]
-python_version = "3.9"
+python_version = "3.10"
 warn_return_any = true
 warn_unused_configs = true
 ignore_missing_imports = true
+explicit_package_bases = true
+mypy_path = "src"
+# Run on the stochopt package
+files = ["src/stochopt", "tests"]
