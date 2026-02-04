@@ -1,0 +1,9 @@
+name: cnet
+type: tpm
+discrete: true
+# Training params
+min_instances_slice: 50
+max_depth: 10
+# Discretization params
+discretization_method: "quantile" # uniform, quantile, kmeans
+n_bins: 5

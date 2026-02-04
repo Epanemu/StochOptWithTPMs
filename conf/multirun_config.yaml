@@ -1,0 +1,32 @@
+# Hydra Multirun Configuration for SPN x Robust x SAA on Newsvendor
+#
+# This configuration tests:
+# - Methods: tpm (SPN), robust, sample_average (SAA)
+# - Sample sizes: 100, 1000, 10000 (opt and train kept equal)
+# - Products: 1, 5, 10, 50, 100
+# - Distribution variants: different means and standard deviations
+#
+# Usage:
+#   python main.py --config-name=multirun_config --multirun
+#
+# Or use the provided shell script:
+#   bash run_multirun.sh
+#
+# Total experiments: 3 methods × 3 sample sizes × 5 problem variants = 45 runs
+
+defaults:
+  - config
+  - override /hydra/launcher: submitit_slurm
+  - _self_
+
+# Override the sweep directory for better organization
+hydra:
+  sweep:
+    dir: multirun/newsvendor_benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${method.name}_n${problem.n_products}_s${samples.opt}
+
+# Fix train_decisions to 10000 across all runs
+samples:
+  train_decisions: 10000
+  validation: 5000
+  test: 10000

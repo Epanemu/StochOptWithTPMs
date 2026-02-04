@@ -1,0 +1,10 @@
+name: tree
+type: tpm
+learner: greedy
+discrete: false
+# Greedy Learner params
+min_samples: 20
+max_depth: 10
+val_ratio: 0.2
+alpha: 0.05
+max_branches: 3

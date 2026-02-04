@@ -1,0 +1,11 @@
+name: spn
+type: tpm
+discrete: false
+# Training params
+min_instances_slice: 200
+n_clusters: 2
+# Encoding params
+mio_epsilon: 1e-4
+sum_approx: "piecewise" # piecewise, lower
+encoding_type_exp: "SOS2" # SOS2, BIGM_BIN
+encoding_type_log: "SOS2" # SOS2, BIGM_BIN

@@ -1,0 +1,8 @@
+name: tree
+type: tpm
+learner: cnet
+discrete: true
+# CNet Learner params
+min_instances_slice: 50
+max_depth: 10
+n_bins: 5

@@ -1,5 +1,5 @@
 defaults:
-  - problem: newsvendor
+  - problem: news/newsvendor
   - method: robust
   - _self_
 
@@ -15,12 +15,12 @@ samples:
   train_decisions: 1000
 
 mlflow:
-  tracking_uri: "sqlite:///mlflow.db"  # SQLite database backend (recommended)
-  experiment_name: "stochopt_benchmark"
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment_name: "SO_${problem.name}_${method.name}"
 
 hydra:
   run:
     dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
   sweep:
-    dir: multirun/${problem}/${method}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    dir: multirun/${problem.name}/${method.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${hydra.job.num}

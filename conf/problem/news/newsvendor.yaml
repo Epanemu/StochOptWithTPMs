@@ -1,4 +1,5 @@
-_target_: src.problem.newsvendor.NewsvendorProblem
+_target_: stochopt.problem.newsvendor.NewsvendorProblem
+name: newsvendor
 n_products: 1
 costs: [1.0]
 prices: [2.0]
