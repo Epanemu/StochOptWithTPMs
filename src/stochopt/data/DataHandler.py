@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Optional
+from typing import Optional, Dict, List
 
 import numpy as np
 import pandas as pd
@@ -33,24 +33,24 @@ class DataHandler:
         X: DataLike,
         y: OneDimData | None = None,
         # trunk-ignore(ruff/B006)
-        categ_map: dict[FeatureID, list[CategValue]] = {},
+        categ_map: Dict[FeatureID, List[CategValue]] = {},
         # trunk-ignore(ruff/B006)
-        ordered: list[FeatureID] = [],
+        ordered: List[FeatureID] = [],
         # trunk-ignore(ruff/B006)
-        bounds_map: dict[FeatureID, tuple[int, int]] = {},
+        bounds_map: Dict[FeatureID, tuple[int, int]] = {},
         # trunk-ignore(ruff/B006)
-        discrete: list[FeatureID] = [],
+        discrete: List[FeatureID] = [],
         # trunk-ignore(ruff/B006)
-        immutable: list[FeatureID] = [],
+        immutable: List[FeatureID] = [],
         # trunk-ignore(ruff/B006)
-        monotonicity: dict[FeatureID, Monotonicity] = {},
+        monotonicity: Dict[FeatureID, Monotonicity] = {},
         # TODO more general causality
         # trunk-ignore(ruff/B006)
-        causal_inc: list[tuple[FeatureID, FeatureID]] = [],
+        causal_inc: List[tuple[FeatureID, FeatureID]] = [],
         # trunk-ignore(ruff/B006)
-        greater_than: list[tuple[FeatureID, FeatureID]] = [],
+        greater_than: List[tuple[FeatureID, FeatureID]] = [],
         regression: bool = False,
-        feature_names: Optional[list[str]] = None,
+        feature_names: Optional[List[str]] = None,
         target_name: Optional[str] = None,
     ):
         """

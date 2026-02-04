@@ -1,13 +1,15 @@
 """
 End-to-end tests for the experiment runner.
 """
+
 import pytest
 import tempfile
 import shutil
 from pathlib import Path
 from omegaconf import OmegaConf
-from src.runner import run_experiment
+from stochopt.runner import run_experiment
 from hydra.utils import instantiate
+
 
 class TestRunner:
     """Integration tests for the experiment runner."""
@@ -123,7 +125,7 @@ class TestConfigurationLoading:
         """Test that newsvendor config file loads correctly."""
         config = OmegaConf.load("conf/problem/newsvendor.yaml")
 
-        assert config._target_ == "src.problem.newsvendor.NewsvendorProblem"
+        assert config._target_ == "stochopt.problem.newsvendor.NewsvendorProblem"
         assert "x_density" in config
         assert config["x_density"] == "uniform"
 

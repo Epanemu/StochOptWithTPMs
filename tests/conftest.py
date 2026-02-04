@@ -1,6 +1,7 @@
 """
 Pytest configuration and shared fixtures for StochOpt tests.
 """
+
 import pytest
 import tempfile
 import os
@@ -8,6 +9,7 @@ from pathlib import Path
 import numpy as np
 from omegaconf import OmegaConf
 from hydra.utils import instantiate
+
 
 @pytest.fixture(scope="session")
 def test_data_dir():
@@ -19,54 +21,45 @@ def test_data_dir():
 @pytest.fixture
 def small_config():
     """Minimal configuration for fast tests."""
-    config = OmegaConf.create({
-        "seed": 42,
-        "risk_level": 0.05,
-        "solver": "appsi_highs",  # HiGHS solver
-        "samples": {
-            "train": 10,
-            "opt": 5,
-            "test": 20,
-            "validation": 15
-        },
-        "mlflow": {
-            "tracking_uri": "sqlite:///test_mlflow.db",
-            "experiment_name": "test_experiment"
-        },
-        "problem": {
-            "_target_": "src.problem.newsvendor.NewsvendorProblem",
-            "n_products": 1,
-            "costs": [1.0],
-            "prices": [2.0],
-            "demand_dist": "normal",
-            "demand_params": {
-                "mean": [100.0],
-                "std": [20.0]
+    config = OmegaConf.create(
+        {
+            "seed": 42,
+            "risk_level": 0.05,
+            "solver": "appsi_highs",  # HiGHS solver
+            "samples": {"train": 10, "opt": 5, "test": 20, "validation": 15, "train_decisions": 10},
+            "mlflow": {
+                "tracking_uri": "sqlite:///test_mlflow.db",
+                "experiment_name": "test_experiment",
             },
-            "density_type": "uniform"
-        },
-        "method": {
-            "name": "robust"
+            "problem": {
+                "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
+                "n_products": 1,
+                "costs": [1.0],
+                "prices": [2.0],
+                "demand_dist": "normal",
+                "demand_params": {"mean": [100.0], "std": [20.0]},
+                "density_type": "uniform",
+            },
+            "method": {"name": "robust"},
         }
-    })
+    )
     return config
 
 
 @pytest.fixture
 def newsvendor_config():
     """Configuration for newsvendor problem tests."""
-    return OmegaConf.create({
-        "_target_": "src.problem.newsvendor.NewsvendorProblem",
-        "n_products": 2,
-        "costs": [1.0, 1.5],
-        "prices": [2.0, 3.0],
-        "demand_dist": "normal",
-        "demand_params": {
-            "mean": [50.0, 75.0],
-            "std": [10.0, 15.0]
-        },
-        "density_type": "uniform",
-    })
+    return OmegaConf.create(
+        {
+            "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
+            "n_products": 2,
+            "costs": [1.0, 1.5],
+            "prices": [2.0, 3.0],
+            "demand_dist": "normal",
+            "demand_params": {"mean": [50.0, 75.0], "std": [10.0, 15.0]},
+            "density_type": "uniform",
+        }
+    )
 
 
 @pytest.fixture

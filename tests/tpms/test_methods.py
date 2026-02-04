@@ -1,9 +1,11 @@
 """
 Integration tests for different optimization methods.
 """
+
 import pytest
 import numpy as np
 from hydra.utils import instantiate
+from typing import Dict, List
 
 
 class TestOptimizationMethods:
@@ -36,9 +38,7 @@ class TestOptimizationMethods:
         scenarios = problem.generate_samples(n_samples=50, seed=42)
 
         model = problem.build_model(
-            method="sample_average",
-            scenarios=scenarios,
-            risk_level=0.1  # Allow 10% violation
+            method="sample_average", scenarios=scenarios, risk_level=0.1  # Allow 10% violation
         )
         result = problem.solve()
 
@@ -95,22 +95,20 @@ class TestTPMOptimization:
 
     def test_spn_method_basic(self, newsvendor_config):
         """Test basic TPM method with SPN."""
-        from src.tpms.spn_tpm import SpnTPM
-        from src.data.DataHandler import DataHandler
+        from stochopt.tpms.spn_tpm import SpnTPM
+        from stochopt.data.DataHandler import DataHandler
 
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=50, train_samples=train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(
+            n_decisions=50, train_samples=train_samples, seed=42
+        )
 
         # Setup DataHandler
-        categ_map = {"sat": [0, 1]}
-        data_handler = DataHandler(
-            tpm_data,
-            feature_names=feat_names,
-            categ_map=categ_map
-        )
+        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
+        data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
 
         # Train TPM
         tpm = SpnTPM()
@@ -118,15 +116,12 @@ class TestTPMOptimization:
 
         # Build and solve model with TPM
         model = problem.build_model(
-            method="tpm",
-            tpm=tpm,
-            data_handler=data_handler,
-            risk_level=0.1
+            method="tpm", tpm=tpm, data_handler=data_handler, risk_level=0.1
         )
 
         assert model is not None
-        assert hasattr(model, 'tpm_block')
-        assert hasattr(model, 'chance_constr')
+        assert hasattr(model, "tpm_block")
+        assert hasattr(model, "chance_constr")
 
         problem.solve()
         solution = problem.get_solution()
@@ -136,22 +131,20 @@ class TestTPMOptimization:
 
     def test_cnet_method_basic(self, newsvendor_config):
         """Test basic TPM method with CNet."""
-        from src.tpms.cnet_tpm import CNetTPM
-        from src.data.DataHandler import DataHandler
+        from stochopt.tpms.cnet_tpm import CNetTPM
+        from stochopt.data.DataHandler import DataHandler
 
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=50, train_samples=train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(
+            n_decisions=50, train_samples=train_samples, seed=42
+        )
 
         # Setup DataHandler
-        categ_map = {"sat": [0, 1]}
-        data_handler = DataHandler(
-            tpm_data,
-            feature_names=feat_names,
-            categ_map=categ_map
-        )
+        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
+        data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
 
         # Train TPM
         tpm = CNetTPM()
@@ -159,26 +152,23 @@ class TestTPMOptimization:
 
         # Build and solve model with TPM
         model = problem.build_model(
-            method="tpm",
-            tpm=tpm,
-            data_handler=data_handler,
-            risk_level=0.1
+            method="tpm", tpm=tpm, data_handler=data_handler, risk_level=0.1
         )
 
         assert model is not None
-        assert hasattr(model, 'tpm_block')
-        assert hasattr(model, 'chance_constr')
+        assert hasattr(model, "tpm_block")
+        assert hasattr(model, "chance_constr")
 
-        model.solve()
-        solution = model.get_solution()
+        problem.solve()
+        solution = problem.get_solution()
 
         assert solution.shape == (2,)
         assert np.all(solution >= 0)
 
     def test_tpm_with_different_risk_levels(self, newsvendor_config):
         """Test TPM with different risk levels."""
-        from src.tpms.spn_tpm import SpnTPM
-        from src.data.DataHandler import DataHandler
+        from stochopt.tpms.spn_tpm import SpnTPM
+        from stochopt.data.DataHandler import DataHandler
 
         newsvendor_config.n_products = 1
         newsvendor_config.costs = [1.0]
@@ -190,8 +180,10 @@ class TestTPMOptimization:
 
         # Generate and train TPM
         train_samples = problem.generate_samples(n_samples=80, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=80, train_samples=train_samples, seed=42)
-        categ_map = {"sat": [0, 1]}
+        tpm_data, feat_names = problem.generate_tpm_data(
+            n_decisions=80, train_samples=train_samples, seed=42
+        )
+        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
         data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
 
         tpm = SpnTPM()
@@ -201,10 +193,7 @@ class TestTPMOptimization:
         solutions = {}
         for risk_level in [0.10, 0.25]:
             problem.build_model(
-                method="tpm",
-                tpm=tpm,
-                data_handler=data_handler,
-                risk_level=risk_level
+                method="tpm", tpm=tpm, data_handler=data_handler, risk_level=risk_level
             )
             problem.solve()
             solutions[risk_level] = problem.get_solution()
@@ -214,6 +203,7 @@ class TestTPMOptimization:
             assert sol.shape == (1,)
             assert np.all(sol >= 0), f"Solution for risk {risk_level} has negative values"
 
+
 class TestTPMDataGeneration:
     """Test TPM data generation workflow."""
 
@@ -222,7 +212,9 @@ class TestTPMDataGeneration:
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         train_samples = problem.generate_samples(n_samples=30, seed=42)
-        tpm_data, feat_names = problem.generate_tpm_data(n_decisions=30, train_samples=train_samples, seed=42)
+        tpm_data, feat_names = problem.generate_tpm_data(
+            n_decisions=30, train_samples=train_samples, seed=42
+        )
 
         # Verify structure
         n_products = newsvendor_config.n_products
@@ -241,7 +233,9 @@ class TestTPMDataGeneration:
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
         train_samples = problem.generate_samples(n_samples=100, seed=42)
-        tpm_data, _ = problem.generate_tpm_data(n_decisions=100, train_samples=train_samples, seed=42)
+        tpm_data, _ = problem.generate_tpm_data(
+            n_decisions=100, train_samples=train_samples, seed=42
+        )
 
         # Check satisfaction distribution
         sat_column = tpm_data[:, -1]
@@ -257,7 +251,11 @@ class TestTPMDataGeneration:
         train_samples = problem.generate_samples(n_samples=20, seed=42)
 
         # Generate twice with same seed
-        tpm_data1, _ = problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
-        tpm_data2, _ = problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
+        tpm_data1, _ = problem.generate_tpm_data(
+            n_decisions=20, train_samples=train_samples, seed=42
+        )
+        tpm_data2, _ = problem.generate_tpm_data(
+            n_decisions=20, train_samples=train_samples, seed=42
+        )
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)

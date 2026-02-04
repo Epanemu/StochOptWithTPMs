@@ -1,6 +1,7 @@
 """
 Unit tests for the newsvendor problem implementation.
 """
+
 import pytest
 import numpy as np
 from hydra.utils import instantiate
@@ -44,9 +45,7 @@ class TestNewsvendorProblem:
     def test_generate_decision_samples(self, newsvendor_problem, sample_demands):
         """Test decision variable sample generation."""
         x_samples = newsvendor_problem.generate_decision_samples(
-            n_samples=10,
-            seed=42,
-            xi=sample_demands[:, :2]  # Use first 2 columns for 2 products
+            n_samples=10, seed=42, xi=sample_demands[:, :2]  # Use first 2 columns for 2 products
         )
 
         assert x_samples.shape == (10, 2)
@@ -89,7 +88,9 @@ class TestNewsvendorProblem:
         """Test TPM data generation."""
         train_samples = newsvendor_problem.generate_samples(n_samples=20, seed=42)
 
-        tpm_data, feat_names = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
+        tpm_data, feat_names = newsvendor_problem.generate_tpm_data(
+            n_decisions=20, train_samples=train_samples, seed=42
+        )
 
         # Check shape: [demands (2), orders (2), sat (1)]
         assert tpm_data.shape == (400, 5)
@@ -104,40 +105,33 @@ class TestNewsvendorProblem:
         scenarios = newsvendor_problem.generate_samples(n_samples=5, seed=42)
 
         model = newsvendor_problem.build_model(
-            method="robust",
-            scenarios=scenarios,
-            risk_level=0.05
+            method="robust", scenarios=scenarios, risk_level=0.05
         )
 
         assert model is not None
-        assert hasattr(model, 'x')
-        assert hasattr(model, 'obj')
-        assert hasattr(model, 'robust_constr')
+        assert hasattr(model, "x")
+        assert hasattr(model, "obj")
+        assert hasattr(model, "robust_constr")
 
     def test_build_model_sample_average(self, newsvendor_problem):
         """Test model building with sample average method."""
         scenarios = newsvendor_problem.generate_samples(n_samples=10, seed=42)
 
         model = newsvendor_problem.build_model(
-            method="sample_average",
-            scenarios=scenarios,
-            risk_level=0.05
+            method="sample_average", scenarios=scenarios, risk_level=0.05
         )
 
         assert model is not None
-        assert hasattr(model, 'x')
-        assert hasattr(model, 'y')
-        assert hasattr(model, 'chance_constr')
-        assert hasattr(model, 'prob_constr')
+        assert hasattr(model, "x")
+        assert hasattr(model, "y")
+        assert hasattr(model, "chance_constr")
+        assert hasattr(model, "prob_constr")
 
     def test_solve_robust_method(self, newsvendor_problem):
         """Test solving with robust method."""
         scenarios = newsvendor_problem.generate_samples(n_samples=5, seed=42)
 
-        newsvendor_problem.build_model(
-            method="robust",
-            scenarios=scenarios
-        )
+        newsvendor_problem.build_model(method="robust", scenarios=scenarios)
 
         result = newsvendor_problem.solve()
 
@@ -148,10 +142,7 @@ class TestNewsvendorProblem:
         """Test extracting solution from solved model."""
         scenarios = newsvendor_problem.generate_samples(n_samples=5, seed=42)
 
-        newsvendor_problem.build_model(
-            method="robust",
-            scenarios=scenarios
-        )
+        newsvendor_problem.build_model(method="robust", scenarios=scenarios)
         newsvendor_problem.solve()
 
         solution = newsvendor_problem.get_solution()
@@ -254,12 +245,8 @@ class TestReproducibility:
         # Same seed but different demands should produce different samples
         assert not np.array_equal(x_samples1, x_samples2)
 
-        x_samples1 = newsvendor_problem.generate_decision_samples(
-            n_samples=15, seed=42
-        )
-        x_samples2 = newsvendor_problem.generate_decision_samples(
-            n_samples=15, seed=42
-        )
+        x_samples1 = newsvendor_problem.generate_decision_samples(n_samples=15, seed=42)
+        x_samples2 = newsvendor_problem.generate_decision_samples(n_samples=15, seed=42)
         # When demands are not provided, should produce same samples
         assert np.array_equal(x_samples1, x_samples2)
 
@@ -267,8 +254,12 @@ class TestReproducibility:
         """Test that TPM data generation is reproducible."""
         train_samples = newsvendor_problem.generate_samples(n_samples=20, seed=10)
 
-        tpm_data1, feat_names1 = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
-        tpm_data2, feat_names2 = newsvendor_problem.generate_tpm_data(n_decisions=20, train_samples=train_samples, seed=42)
+        tpm_data1, feat_names1 = newsvendor_problem.generate_tpm_data(
+            n_decisions=20, train_samples=train_samples, seed=42
+        )
+        tpm_data2, feat_names2 = newsvendor_problem.generate_tpm_data(
+            n_decisions=20, train_samples=train_samples, seed=42
+        )
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)
         assert feat_names1 == feat_names2
@@ -290,8 +281,12 @@ class TestReproducibility:
 
         np.testing.assert_array_equal(samples1, samples2)
 
-        tpm_data1, feat_names1 = problem1.generate_tpm_data(n_decisions=20, train_samples=samples1, seed=42)
-        tpm_data2, feat_names2 = problem2.generate_tpm_data(n_decisions=20, train_samples=samples2, seed=42)
+        tpm_data1, feat_names1 = problem1.generate_tpm_data(
+            n_decisions=20, train_samples=samples1, seed=42
+        )
+        tpm_data2, feat_names2 = problem2.generate_tpm_data(
+            n_decisions=20, train_samples=samples2, seed=42
+        )
 
         np.testing.assert_array_equal(tpm_data1, tpm_data2)
         assert feat_names1 == feat_names2
