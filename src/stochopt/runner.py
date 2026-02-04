@@ -21,6 +21,7 @@ try:
     from stochopt.tpms.tpm import TPM
     from stochopt.tpms.spn_tpm import SpnTPM
     from stochopt.tpms.cnet_tpm import CNetTPM
+    from stochopt.tpms.TreeTPM.tree_tpm import TreeTPM
 except ImportError:
     logging.warning("Could not import TPM modules. TPM training will fail.")
 
@@ -29,7 +30,7 @@ log = logging.getLogger(__name__)
 
 def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM:
     """
-    Train a TPM (SPN or CNet) on the provided data.
+    Train a TPM (SPN, CNet, or Tree) on the provided data.
     """
     tpm_cfg = cfg.method
     tpm_name = tpm_cfg.name
@@ -57,6 +58,29 @@ def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM
             discretization_method=tpm_cfg.discretization_method,
             n_bins=tpm_cfg.n_bins,
         )
+        return tpm
+
+    elif tpm_name == "tree":
+        log.info(f"Training TreeTPM (Learner: {tpm_cfg.learner})...")
+        tpm = TreeTPM(data_handler)
+        if tpm_cfg.learner == "greedy":
+            tpm.train_greedy_top_down(
+                encoded_data,
+                min_samples=tpm_cfg.min_samples,
+                max_depth=tpm_cfg.max_depth,
+                val_ratio=tpm_cfg.val_ratio,
+                alpha=tpm_cfg.alpha,
+                max_branches=tpm_cfg.max_branches,
+            )
+        elif tpm_cfg.learner == "cnet":
+            tpm.train(
+                encoded_data,
+                min_instances_slice=tpm_cfg.min_instances_slice,
+                max_depth=tpm_cfg.max_depth,
+                n_bins=tpm_cfg.n_bins,
+            )
+        else:
+            raise ValueError(f"Unknown Tree learner: {tpm_cfg.learner}")
         return tpm
 
     else:
