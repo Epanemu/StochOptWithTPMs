@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, cast
 
 import numpy as np
 import pandas as pd
@@ -81,6 +81,7 @@ class DataHandler:
                 print("Taking target values from the X matrix")
                 y = X[target_name]
                 X = X.drop(columns=target_name)
+            X = cast(pd.DataFrame, X)
             X = X.to_numpy()
 
         if y is not None:

@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 
 from .base import MIN_LOG_PROB
-from .histograms import Histogram, JointHistogram
+from .histograms import JointHistogram
 
 
 class TreeNode(ABC):
@@ -44,7 +44,7 @@ class TreeNode(ABC):
         pass
 
     @abstractmethod
-    def flatten(self, vars_to_keep: Set[int]) -> Histogram:
+    def flatten(self, vars_to_keep: Set[int]) -> JointHistogram:
         """
         Recursively flatten a sub-tree into a single Histogram.
         """
@@ -57,7 +57,7 @@ class LeafNode(TreeNode):
     for its scope.
     """
 
-    def __init__(self, scope: List[int], histogram: Histogram):
+    def __init__(self, scope: List[int], histogram: JointHistogram):
         """
         Initialize the LeafNode.
 
@@ -83,7 +83,7 @@ class LeafNode(TreeNode):
         new_hist = self.flatten(vars_to_keep)
         return LeafNode(new_hist.scope, new_hist)
 
-    def flatten(self, vars_to_keep: Set[int]) -> Histogram:
+    def flatten(self, vars_to_keep: Set[int]) -> JointHistogram:
         """Flatten a leaf: marginalize to kept variables."""
         keep_set = vars_to_keep & set(self.scope)
         return self.histogram.marginalize(keep_set)
@@ -175,7 +175,7 @@ class DecisionNode(TreeNode):
                 self.weights,
             )
 
-    def flatten(self, vars_to_keep: Set[int]) -> Histogram:
+    def flatten(self, vars_to_keep: Set[int]) -> JointHistogram:
         """Recursively flatten DecisionNode."""
         child_hists = [child.flatten(vars_to_keep) for child in self.children]
 
@@ -236,7 +236,7 @@ class DecisionNode(TreeNode):
                         )
 
         # Combine child histograms using the weights
-        base_h = None
+        base_h: Optional[JointHistogram] = None
         total_w = 0.0
         for w, h in zip(self.weights, child_hists):
             if base_h is None:

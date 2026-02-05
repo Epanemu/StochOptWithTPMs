@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Dict, List, Optional, Set, Tuple
 
 import numpy as np
 import numpy.typing as npt
@@ -20,12 +20,12 @@ class Histogram(ABC):
     feature_types: List[str]
 
     @abstractmethod
-    def log_inference(self, x: Any) -> float:
+    def log_inference(self, x: npt.NDArray[np.float64]) -> float:
         """
         Calculate the log-probability of a value x.
 
         Args:
-            x: Any
+            x: npt.NDArray[np.float64]
                 The input value.
 
         Returns:
@@ -123,7 +123,7 @@ class JointHistogram(Histogram):
                         vm[int(val)] = (idx, log_group_size)
                 self.val_maps[var_idx] = vm
 
-    def log_inference(self, x: List[int]) -> float:
+    def log_inference(self, x: npt.NDArray[np.float64]) -> float:
         """
         Compute joint log-probability (density) for a sample. x can be a vector/array
         matching the scope size.
@@ -154,8 +154,8 @@ class JointHistogram(Histogram):
 
                 if v < edges[0] or v > edges[-1]:
                     return MIN_LOG_PROB
-                idx = np.searchsorted(edges, v, side="right") - 1
-                idx = np.clip(idx, 0, self.log_probs.shape[i] - 1)
+                idx = int(np.searchsorted(edges, v, side="right") - 1)
+                idx = int(np.clip(idx, 0, self.log_probs.shape[i] - 1))
                 indices.append(idx)
                 total_log_correction += np.log(max(1e-12, edges[idx + 1] - edges[idx]))
 
