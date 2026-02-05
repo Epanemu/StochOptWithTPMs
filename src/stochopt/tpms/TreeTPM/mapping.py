@@ -1,10 +1,12 @@
+from typing import Any, Dict, Optional, Union
+
 import numpy as np
-from typing import Union, Optional, Any, Dict, List
-from .nodes import DecisionNode, LeafNode, TreeNode
-from .histograms import JointHistogram
 
 # Import CNet implementation for mapping
 import stochopt.tpms.CNet.cnet_learning as cnet_impl
+
+from .histograms import JointHistogram
+from .nodes import DecisionNode, LeafNode, TreeNode
 
 
 def cnet_to_tree(
@@ -44,7 +46,9 @@ def cnet_to_tree(
             possible_values = sorted(list(node.branches.keys()))
             split_bins = [{v} for v in possible_values]
 
-        return DecisionNode(node.decision_var, children, feature_type, split_bins, weights)
+        return DecisionNode(
+            node.decision_var, children, feature_type, split_bins, weights
+        )
 
     elif isinstance(node, cnet_impl.LeafNode):
         scope_list = node.scope

@@ -4,5 +4,11 @@ from .Contiguous import Contiguous
 from .Feature import Feature, Monotonicity
 from .Mixed import Mixed
 
-# Ignore unused imports issue
-# trunk-ignore-all(ruff/F401)
+__all__ = [
+    "Binary",
+    "Categorical",
+    "Contiguous",
+    "Feature",
+    "Monotonicity",
+    "Mixed",
+]

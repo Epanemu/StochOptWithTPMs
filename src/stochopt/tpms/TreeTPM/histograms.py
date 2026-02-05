@@ -1,9 +1,11 @@
+from abc import ABC, abstractmethod
+from typing import Any, Dict, List, Optional, Set, Tuple
+
 import numpy as np
 import numpy.typing as npt
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
-from .base import MIN_LOG_PROB
 from scipy.special import logsumexp
+
+from .base import MIN_LOG_PROB
 
 
 class Histogram(ABC):
@@ -169,7 +171,9 @@ class JointHistogram(Histogram):
             # if we marginalize out all variables, we are left with a constant 1.0 histogram
             return JointHistogram([], {}, {}, np.array(0.0), [])
 
-        axes_to_sum = tuple(i for i in range(len(self.scope)) if i not in keep_local_indices)
+        axes_to_sum = tuple(
+            i for i in range(len(self.scope)) if i not in keep_local_indices
+        )
 
         # Use logsumexp for stability
         new_log_probs = logsumexp(self.log_probs, axis=axes_to_sum)
@@ -230,13 +234,17 @@ class JointHistogram(Histogram):
                 if 0 <= b_idx < n_bins_new:
                     target_slice: List[slice | int] = [slice(None)] * len(new_shape)
                     target_slice[new_pos] = b_idx
-                    final_log_probs[tuple(target_slice)] = self.log_probs + log_expansion_factor
+                    final_log_probs[tuple(target_slice)] = (
+                        self.log_probs + log_expansion_factor
+                    )
         else:
             log_expansion_factor = -np.log(n_bins_new)
             expanded_log_probs = np.expand_dims(self.log_probs, axis=new_pos)
             final_log_probs = expanded_log_probs + log_expansion_factor
 
-        return JointHistogram(new_scope, new_edges, new_bins, final_log_probs, new_types)
+        return JointHistogram(
+            new_scope, new_edges, new_bins, final_log_probs, new_types
+        )
 
     @staticmethod
     def unify_edges(
@@ -244,7 +252,9 @@ class JointHistogram(Histogram):
     ) -> npt.NDArray[np.float64]:
         """Unify two bin definitions to the most granular common grid."""
         if not isinstance(edges1, np.ndarray) or not isinstance(edges2, np.ndarray):
-            raise ValueError("Continuous variable bin edges must be a numpy array of floats.")
+            raise ValueError(
+                "Continuous variable bin edges must be a numpy array of floats."
+            )
         return np.union1d(edges1, edges2)
 
     @staticmethod
@@ -258,7 +268,9 @@ class JointHistogram(Histogram):
                     new_groups.append(inter)
         return new_groups
 
-    def combine(self, other: "JointHistogram", w_self: float, w_other: float) -> "JointHistogram":
+    def combine(
+        self, other: "JointHistogram", w_self: float, w_other: float
+    ) -> "JointHistogram":
         """
         Combine two joint histograms (mixture). Assumes scopes match.
         """
@@ -340,14 +352,21 @@ class JointHistogram(Histogram):
                     idx_o = np.searchsorted(other.edges[var_idx], mid) - 1
 
                     # Fraction of parent bin mass: (new_width / old_width)
-                    new_w = float(new_edges[var_idx][j + 1]) - float(new_edges[var_idx][j])
+                    new_w = float(new_edges[var_idx][j + 1]) - float(
+                        new_edges[var_idx][j]
+                    )
                     if 0 <= idx_s < len(self.edges[var_idx]) - 1:
-                        old_w_s = self.edges[var_idx][idx_s + 1] - self.edges[var_idx][idx_s]
+                        old_w_s = (
+                            self.edges[var_idx][idx_s + 1] - self.edges[var_idx][idx_s]
+                        )
                         f_s = np.log(new_w) - np.log(old_w_s)
                     else:
                         f_s = -np.inf
                     if 0 <= idx_o < len(other.edges[var_idx]) - 1:
-                        old_w_o = other.edges[var_idx][idx_o + 1] - other.edges[var_idx][idx_o]
+                        old_w_o = (
+                            other.edges[var_idx][idx_o + 1]
+                            - other.edges[var_idx][idx_o]
+                        )
                         f_o = np.log(new_w) - np.log(old_w_o)
                     else:
                         f_o = -np.inf
@@ -357,8 +376,12 @@ class JointHistogram(Histogram):
                 nb_list = new_bins[var_idx]
                 for j, group in enumerate(nb_list):
                     sample_val = next(iter(group))
-                    idx_s, log_size_s = self.val_maps[var_idx].get(sample_val, (-1, 0.0))
-                    idx_o, log_size_o = other.val_maps[var_idx].get(sample_val, (-1, 0.0))
+                    idx_s, log_size_s = self.val_maps[var_idx].get(
+                        sample_val, (-1, 0.0)
+                    )
+                    idx_o, log_size_o = other.val_maps[var_idx].get(
+                        sample_val, (-1, 0.0)
+                    )
 
                     # Fraction of parent bin mass: (new_group_size / old_group_size)
                     f_s = np.log(len(group)) - log_size_s if idx_s != -1 else -np.inf
@@ -387,4 +410,6 @@ class JointHistogram(Histogram):
 
             new_log_probs[idx_new] = logsumexp([l_w1 + lp1, l_w2 + lp2])
 
-        return JointHistogram(self.scope, new_edges, new_bins, new_log_probs, self.feature_types)
+        return JointHistogram(
+            self.scope, new_edges, new_bins, new_log_probs, self.feature_types
+        )

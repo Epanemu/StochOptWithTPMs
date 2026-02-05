@@ -2,13 +2,13 @@
 Pytest configuration and shared fixtures for StochOpt tests.
 """
 
-import pytest
 import tempfile
-import os
 from pathlib import Path
+
 import numpy as np
-from omegaconf import OmegaConf
+import pytest
 from hydra.utils import instantiate
+from omegaconf import OmegaConf
 
 
 @pytest.fixture(scope="session")
@@ -26,7 +26,13 @@ def small_config():
             "seed": 42,
             "risk_level": 0.05,
             "solver": "appsi_highs",  # HiGHS solver
-            "samples": {"train": 10, "opt": 5, "test": 20, "validation": 15, "train_decisions": 10},
+            "samples": {
+                "train": 10,
+                "opt": 5,
+                "test": 20,
+                "validation": 15,
+                "train_decisions": 10,
+            },
             "mlflow": {
                 "tracking_uri": "sqlite:///test_mlflow.db",
                 "experiment_name": "test_experiment",

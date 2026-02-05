@@ -5,10 +5,11 @@ Clean CNet Learning Implementation
 - Specialized for binary/discrete features
 """
 
+from typing import Any, Dict, List, Optional
+
+import networkx as nx
 import numpy as np
 import numpy.typing as npt
-import networkx as nx
-from typing import Any, Dict, List, Optional, Union
 from stochopt.data.DataHandler import DataHandler
 
 
@@ -18,7 +19,10 @@ class LeafNode:
     """
 
     def __init__(
-        self, scope: List[int], tree: List[int], log_factors: List[npt.NDArray[np.float64]]
+        self,
+        scope: List[int],
+        tree: List[int],
+        log_factors: List[npt.NDArray[np.float64]],
     ):
         """
         Initialize the LeafNode.
@@ -76,7 +80,11 @@ class DecisionNode:
     """
 
     def __init__(
-        self, scope: List[int], decision_var: int, probs: Dict[int, float], branches: Dict[int, Any]
+        self,
+        scope: List[int],
+        decision_var: int,
+        probs: Dict[int, float],
+        branches: Dict[int, Any],
     ):
         """
         Initialize the DecisionNode.
@@ -147,7 +155,8 @@ def compute_mutual_information(
     probs_indep = np.outer(probs_u, probs_v)
 
     mi = np.sum(
-        probs_joint[mask] * np.log((probs_joint[mask] + 1e-10) / (probs_indep[mask] + 1e-10))
+        probs_joint[mask]
+        * np.log((probs_joint[mask] + 1e-10) / (probs_indep[mask] + 1e-10))
     )
     return float(max(0.0, mi))
 
@@ -194,8 +203,12 @@ def learn_chow_liu_tree(
 
     for i in range(n_vars):
         for j in range(i + 1, n_vars):
-            mi = compute_mutual_information(data_handler, data, scope_list[i], scope_list[j])
-            G.add_edge(i, j, weight=-mi)  # Minimum spanning tree treats weights as distance
+            mi = compute_mutual_information(
+                data_handler, data, scope_list[i], scope_list[j]
+            )
+            G.add_edge(
+                i, j, weight=-mi
+            )  # Minimum spanning tree treats weights as distance
 
     # Minimum spanning tree (with negative weights = Maximum Spanning Tree)
     mst = nx.minimum_spanning_tree(G)
@@ -365,7 +378,9 @@ def learn_cnet_tree(
         if count == 0:
             # If no samples, use the parent data (current node's data) as a fallback
             # for the Chow-Liu tree structure in this branch.
-            branches_dict[val] = learn_chow_liu_tree(data_handler, data, new_scope, alpha=alpha)
+            branches_dict[val] = learn_chow_liu_tree(
+                data_handler, data, new_scope, alpha=alpha
+            )
         else:
             branches_dict[val] = learn_cnet_tree(
                 data_handler,
@@ -401,7 +416,9 @@ if __name__ == "__main__":
     x3 = np.random.randint(0, 3, N).astype(np.float64)
 
     data = np.stack([x0, x1, x2, x3], axis=1, dtype=np.float64)
-    data_handler = DataHandler(data, categ_map={0: [0, 1], 1: [0, 1], 2: [0, 1], 3: [0, 1, 2]})
+    data_handler = DataHandler(
+        data, categ_map={0: [0, 1], 1: [0, 1], 2: [0, 1], 3: [0, 1, 2]}
+    )
 
     cnet = learn_cnet_tree(data_handler, data, min_instances_slice=50)
     print("\nLearned Structure:")

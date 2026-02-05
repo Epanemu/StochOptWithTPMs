@@ -1,9 +1,11 @@
+from abc import ABC, abstractmethod
+from typing import List, Optional, Set, Union, cast
+
 import numpy as np
 import numpy.typing as npt
-from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, cast
-from .histograms import Histogram, JointHistogram
+
 from .base import MIN_LOG_PROB
+from .histograms import Histogram, JointHistogram
 
 
 class TreeNode(ABC):
@@ -121,7 +123,9 @@ class DecisionNode(TreeNode):
         self.feature_type = feature_type
         self.split_bins = split_bins
         self.weights = (
-            weights if weights else ([1.0 / len(children)] * len(children) if children else [])
+            weights
+            if weights
+            else ([1.0 / len(children)] * len(children) if children else [])
         )
 
     def log_inference(self, x: npt.NDArray[np.float64]) -> float:
@@ -148,7 +152,9 @@ class DecisionNode(TreeNode):
             if idx == -1:
                 return MIN_LOG_PROB
 
-        return float(np.log(max(1e-12, self.weights[idx])) + self.children[idx].log_inference(x))
+        return float(
+            np.log(max(1e-12, self.weights[idx])) + self.children[idx].log_inference(x)
+        )
 
     def marginalize(self, vars_to_keep: Set[int]) -> TreeNode:
         """
@@ -162,7 +168,11 @@ class DecisionNode(TreeNode):
         else:
             new_children = [child.marginalize(vars_to_keep) for child in self.children]
             return DecisionNode(
-                self.split_var, new_children, self.feature_type, self.split_bins, self.weights
+                self.split_var,
+                new_children,
+                self.feature_type,
+                self.split_bins,
+                self.weights,
             )
 
     def flatten(self, vars_to_keep: Set[int]) -> Histogram:
@@ -175,12 +185,20 @@ class DecisionNode(TreeNode):
                 if self.feature_type == "continuous":
                     edges = cast(npt.NDArray[np.float64], self.split_bins)
                     child_hists[i] = child_hists[i].expand_scope(
-                        self.split_var, edges, [], self.feature_type, bin_restriction={i}
+                        self.split_var,
+                        edges,
+                        [],
+                        self.feature_type,
+                        bin_restriction={i},
                     )
                 else:
                     bins = cast(List[Set[int]], self.split_bins)
                     child_hists[i] = child_hists[i].expand_scope(
-                        self.split_var, np.array([]), bins, self.feature_type, bin_restriction={i}
+                        self.split_var,
+                        np.array([]),
+                        bins,
+                        self.feature_type,
+                        bin_restriction={i},
                     )
 
         # Unify scopes across all children before combination

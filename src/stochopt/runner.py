@@ -1,26 +1,20 @@
 import logging
-import sys
 import os
 import time
-from typing import Any
-import numpy as np
-import numpy.typing as npt
+
 import mlflow
-import hydra
+import numpy as np
 from hydra.utils import instantiate
 from omegaconf import DictConfig
-
-# Add src to path to allow imports
-sys.path.append(os.path.join(os.path.dirname(__file__), ".."))
 
 from stochopt.data.DataHandler import DataHandler
 from stochopt.data.Types import DataLike
 
 # Import TPM trainers
 try:
-    from stochopt.tpms.tpm import TPM
-    from stochopt.tpms.spn_tpm import SpnTPM
     from stochopt.tpms.cnet_tpm import CNetTPM
+    from stochopt.tpms.spn_tpm import SpnTPM
+    from stochopt.tpms.tpm import TPM
     from stochopt.tpms.TreeTPM.tree_tpm import TreeTPM
 except ImportError:
     logging.warning("Could not import TPM modules. TPM training will fail.")
@@ -128,7 +122,10 @@ def run_experiment(cfg: DictConfig) -> None:
 
             # 2. Generate Data
             log.info(f"Generating {cfg.samples.train} training samples...")
-            train_samples = problem.generate_samples(n_samples=cfg.samples.train, seed=cfg.seed)
+            train_samples = problem.generate_samples(
+                n_samples=cfg.samples.train,
+                seed=cfg.seed,
+            )
 
             # 3. Setup DataHandler and TPM
             if cfg.method.get("type") == "tpm":
@@ -173,7 +170,7 @@ def run_experiment(cfg: DictConfig) -> None:
             if cfg.method.get("type") == "tpm":
                 build_method_name = "tpm"
 
-            model = problem.build_model(
+            problem.build_model(
                 method=build_method_name,
                 tpm=tpm,
                 data_handler=data_handler,
@@ -206,8 +203,9 @@ def run_experiment(cfg: DictConfig) -> None:
                 log.warning(f"Solver status is {solver_status}, marking run as failed.")
                 mlflow.set_tag("status", "FAILED")
                 mlflow.set_tag("error_type", "SOLVER_FAILURE")
-                mlflow.set_tag("error_message", f"Solver returned status: {solver_status}")
-                # We can still try to evaluate if there's a solution, but usually there isn't
+                mlflow.set_tag(
+                    "error_message", f"Solver returned status: {solver_status}"
+                )
                 if result.get("objective") is None:
                     return
 
@@ -231,7 +229,9 @@ def run_experiment(cfg: DictConfig) -> None:
             # Validation on new samples
             val_seed = cfg.seed + 1  # Different seed
             n_val = cfg.samples.get("validation", cfg.samples.test)
-            validation_samples = problem.generate_samples(n_samples=n_val, seed=val_seed)
+            validation_samples = problem.generate_samples(
+                n_samples=n_val, seed=val_seed
+            )
 
             val_satisfied = problem.check_satisfaction(x_sol, validation_samples)
             val_prob_satisfied = np.mean(val_satisfied)
@@ -251,21 +251,28 @@ def run_experiment(cfg: DictConfig) -> None:
                 log.info("Calculating P(x_sol) from TPM...")
                 # pad x_sol with None for marginalized variables and 1 for the satisfied constraint
                 x_sol = np.array(
-                    [None] * (tpm.data_handler.n_features - len(x_sol) - 1) + list(x_sol) + [1]
+                    [None] * (tpm.data_handler.n_features - len(x_sol) - 1)
+                    + list(x_sol)
+                    + [1]
                 )
                 p_x_sol = tpm.probability(x_sol)
                 mlflow.log_metric(
                     "true_tpm_prob_satisfied", np.exp(p_x_sol - problem.x_log_density)
                 )
-                log.info(f"P(x_sol) from true TPM: {np.exp(p_x_sol - problem.x_log_density)}")
+                log.info(
+                    "P(x_sol) from true TPM: "
+                    + f"{np.exp(p_x_sol - problem.x_log_density)}"
+                )
                 # TODO make this somehow neat? also above, passing cfg is not ideal
                 # TODO check also the division by p(x) if not uniform
                 p_x_sol_approx = tpm.probability_approx(x_sol, **cfg.method)
                 mlflow.log_metric(
-                    "approx_tpm_prob_satisfied", np.exp(p_x_sol_approx - problem.x_log_density)
+                    "approx_tpm_prob_satisfied",
+                    np.exp(p_x_sol_approx - problem.x_log_density),
                 )
                 log.info(
-                    f"P(x_sol) from approx TPM: {np.exp(p_x_sol_approx - problem.x_log_density)}"
+                    "P(x_sol) from approx TPM: "
+                    + f"{np.exp(p_x_sol_approx - problem.x_log_density)}"
                 )
 
             # Mark as successful

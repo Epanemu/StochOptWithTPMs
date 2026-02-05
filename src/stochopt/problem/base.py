@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
@@ -140,7 +141,10 @@ class BaseProblem(ABC):
 
     # TODO: separate the n_decisions parameter from n_pairing parameter which would choose a subset of decision variables to pair with each training sample of xi
     def generate_tpm_data(
-        self, n_decisions: int, train_samples: npt.NDArray[np.float64], seed: Optional[int] = None
+        self,
+        n_decisions: int,
+        train_samples: npt.NDArray[np.float64],
+        seed: Optional[int] = None,
     ) -> Tuple[npt.NDArray[np.float64], list[str]]:
         """
         Generate training data for TPM (xi, x, sat).
@@ -160,7 +164,9 @@ class BaseProblem(ABC):
 
         # Generate x samples (size n_decisions)
         # We pass train_samples to help determine bounds if needed
-        x_samples = self.generate_decision_samples(n_decisions, seed=seed, xi=train_samples)
+        x_samples = self.generate_decision_samples(
+            n_decisions, seed=seed, xi=train_samples
+        )
 
         # Pair each xi with each x (Cartesian product)
         # Repeat xi: [xi1, xi1, ..., xi2, xi2, ...]

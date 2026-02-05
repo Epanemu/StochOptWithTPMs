@@ -1,5 +1,6 @@
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Union
+
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
@@ -49,7 +50,9 @@ class TPM(ABC):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]],
+        inputs: List[
+            Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]
+        ],
         solver: str = "gurobi",
         **kwargs: Any,
     ) -> pyo.Var:
@@ -95,7 +98,9 @@ class TPM(ABC):
         pass
 
     @abstractmethod
-    def probability_approx(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def probability_approx(
+        self, sample: npt.NDArray[np.float64], **kwargs: Any
+    ) -> float:
         """
         Calculate an approximate log-probability (or log-density) of a given sample.
 

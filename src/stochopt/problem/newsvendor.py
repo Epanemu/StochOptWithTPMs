@@ -1,13 +1,11 @@
-import logging
-from typing import Any, Dict, Optional, Tuple, List
+from typing import Any, Dict, List, Optional, Tuple
+
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
-from scipy.stats import norm, expon
 from omegaconf import ListConfig
-
+from scipy.stats import expon, norm
 from stochopt.problem.base import BaseProblem
-
 from stochopt.tpms.tpm import TPM
 
 
@@ -30,12 +28,18 @@ class NewsvendorProblem(BaseProblem):
         super().__init__(solver)
         self.n_products = n_products
         self.costs = np.array(costs) if costs is not None else np.ones(self.n_products)
-        self.prices = np.array(prices) if prices is not None else np.zeros(self.n_products)
+        self.prices = (
+            np.array(prices) if prices is not None else np.zeros(self.n_products)
+        )
         self.demand_dist = demand_dist  # "normal", "exponential"
         self.demand_params = demand_params  # dict with mean, std, etc.
-        if isinstance(self.demand_params["std"], (list, tuple, npt.NDArray, ListConfig)):
+        if isinstance(
+            self.demand_params["std"], (list, tuple, npt.NDArray, ListConfig)
+        ):
             assert len(self.demand_params["std"]) == self.n_products
-        if isinstance(self.demand_params["mean"], (list, tuple, npt.NDArray, ListConfig)):
+        if isinstance(
+            self.demand_params["mean"], (list, tuple, npt.NDArray, ListConfig)
+        ):
             assert len(self.demand_params["mean"]) == self.n_products
         self.x_density_type = x_density_type
 
@@ -50,14 +54,18 @@ class NewsvendorProblem(BaseProblem):
             # Handle per-product parameters if list, else assume shared/scalar
             mean = (
                 self.demand_params["mean"][i]
-                if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig))
+                if isinstance(
+                    self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig)
+                )
                 else self.demand_params["mean"]
             )
 
             if self.demand_dist == "normal":
                 std = (
                     self.demand_params["std"][i]
-                    if isinstance(self.demand_params["std"], (list, tuple, np.ndarray, ListConfig))
+                    if isinstance(
+                        self.demand_params["std"], (list, tuple, np.ndarray, ListConfig)
+                    )
                     else self.demand_params["std"]
                 )
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
@@ -107,7 +115,8 @@ class NewsvendorProblem(BaseProblem):
                     mean = (
                         self.demand_params["mean"][i]
                         if isinstance(
-                            self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig)
+                            self.demand_params["mean"],
+                            (list, tuple, np.ndarray, ListConfig),
                         )
                         else self.demand_params["mean"]
                     )
@@ -116,7 +125,8 @@ class NewsvendorProblem(BaseProblem):
                         std = (
                             self.demand_params["std"][i]
                             if isinstance(
-                                self.demand_params["std"], (list, tuple, np.ndarray, ListConfig)
+                                self.demand_params["std"],
+                                (list, tuple, np.ndarray, ListConfig),
                             )
                             else self.demand_params["std"]
                         )
@@ -186,9 +196,13 @@ class NewsvendorProblem(BaseProblem):
 
         try:
             # TODO work with pyomo solve status here - infeasible, unbounded, timeout etc. - log that fact in mlflow? retrun it from this function and log it in mlflow in the runner calling this function
-            solution = np.array([pyo.value(self.model.x[i]) for i in range(self.n_products)])
+            solution = np.array(
+                [pyo.value(self.model.x[i]) for i in range(self.n_products)]
+            )
             if any(v is None for v in solution):
-                raise ValueError("Model solution contains None values. Model may be infeasible.")
+                raise ValueError(
+                    "Model solution contains None values. Model may be infeasible."
+                )
             return solution
         except Exception as e:
             raise ValueError(f"Could not extract solution: {e}")
@@ -203,7 +217,6 @@ class NewsvendorProblem(BaseProblem):
         epsilon: float = 1e-6,
         **kwargs,
     ) -> pyo.ConcreteModel:
-
         model = pyo.ConcreteModel()
         model.x = pyo.Var(range(self.n_products), domain=pyo.NonNegativeReals)
         demands = scenarios
@@ -216,7 +229,8 @@ class NewsvendorProblem(BaseProblem):
 
         # Objective: Minimize sum(costs * x)
         model.obj = pyo.Objective(
-            expr=sum(self.costs[i] * model.x[i] for i in range(self.n_products)), sense=pyo.minimize
+            expr=sum(self.costs[i] * model.x[i] for i in range(self.n_products)),
+            sense=pyo.minimize,
         )
 
         if method == "robust":
@@ -226,7 +240,9 @@ class NewsvendorProblem(BaseProblem):
 
             model.nsamples = pyo.Set(initialize=range(len(demands)))
             model.robust_constr = pyo.Constraint(
-                model.nsamples, range(self.n_products), rule=lambda m, i, j: m.x[j] >= demands[i, j]
+                model.nsamples,
+                range(self.n_products),
+                rule=lambda m, i, j: m.x[j] >= demands[i, j],
             )
 
         elif method == "sample_average":
@@ -236,7 +252,9 @@ class NewsvendorProblem(BaseProblem):
 
             n_s = len(demands)
             model.nsamples = pyo.Set(initialize=range(n_s))
-            model.y = pyo.Var(model.nsamples, domain=pyo.Binary)  # y=1 if satisfied, 0 otherwise
+            model.y = pyo.Var(
+                model.nsamples, domain=pyo.Binary
+            )  # y=1 if satisfied, 0 otherwise
 
             # Constraint: x >= D if y=1
             # Big-M formulation: x_j >= d_ij * y_i
@@ -268,13 +286,19 @@ class NewsvendorProblem(BaseProblem):
 
             # TODO We can get the order of features from the DataHandler - some might be categorical or sth
             # TODO if the input is discrete, this will be different - raise an error for now
-            inputs = [None] * self.n_products + [model.x[i] for i in range(self.n_products)] + [1]
+            inputs = (
+                [None] * self.n_products
+                + [model.x[i] for i in range(self.n_products)]
+                + [1]
+            )
 
             # Encode
             # TODO: Handle density of x
 
             # the tpm encode handles marginalization to P(x, sat)
-            output = tpm.encode(model.tpm_block, inputs, solver=self.solver_name, **kwargs)
+            output = tpm.encode(
+                model.tpm_block, inputs, solver=self.solver_name, **kwargs
+            )
 
             if hasattr(self, "x_log_density"):
                 target_log_prob = np.log(1 - risk_level) + self.x_log_density
@@ -283,7 +307,10 @@ class NewsvendorProblem(BaseProblem):
                 # marginalize out the satisfaction variable as well
                 inputs_x_density = inputs[:-1] + [None]
                 x_density = tpm.encode(
-                    model.x_density_block, inputs_x_density, solver=self.solver_name, **kwargs
+                    model.x_density_block,
+                    inputs_x_density,
+                    solver=self.solver_name,
+                    **kwargs,
                 )
 
                 target_log_prob = np.log(1 - risk_level) + x_density

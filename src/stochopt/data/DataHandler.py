@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-from typing import Optional, Dict, List
+import logging
+from typing import Dict, List, Optional
 
 import numpy as np
 import pandas as pd
-import logging
 
 from .Features import (
     Binary,
@@ -14,7 +14,7 @@ from .Features import (
     Mixed,
     Monotonicity,
 )
-from .Types import CategValue, DataLike, FeatureID, OneDimData, FloatArray
+from .Types import CategValue, DataLike, FeatureID, FloatArray, OneDimData
 
 log = logging.getLogger(__name__)
 
@@ -203,7 +203,9 @@ class DataHandler:
                         data, name=feat_name, monotone=monotone, modifiable=modifiable
                     )
                 else:
-                    return Binary(data, name=feat_name, monotone=monotone, modifiable=modifiable)
+                    return Binary(
+                        data, name=feat_name, monotone=monotone, modifiable=modifiable
+                    )
 
     @property
     def n_features(self) -> int:
@@ -225,7 +227,9 @@ class DataHandler:
         """List of feature names"""
         return [f.name for f in self.__input_features]
 
-    def encode(self, X: DataLike, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, X: DataLike, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         """
         Encode input features.
 
@@ -258,7 +262,9 @@ class DataHandler:
 
         return enc
 
-    def encode_y(self, y: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode_y(
+        self, y: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         """
         Encode target feature.
 
@@ -284,12 +290,16 @@ class DataHandler:
         return np.concatenate(
             [
                 self.encode(
-                    X_all.iloc[:, :-1] if isinstance(X_all, pd.DataFrame) else X_all[:, :-1],
+                    X_all.iloc[:, :-1]
+                    if isinstance(X_all, pd.DataFrame)
+                    else X_all[:, :-1],
                     normalize,
                     one_hot,
                 ),
                 self.encode_y(
-                    X_all.iloc[:, -1] if isinstance(X_all, pd.DataFrame) else X_all[:, -1],
+                    X_all.iloc[:, -1]
+                    if isinstance(X_all, pd.DataFrame)
+                    else X_all[:, -1],
                     normalize,
                     one_hot,
                 ).reshape(-1, 1),
@@ -332,7 +342,9 @@ class DataHandler:
         curr_col = 0
         for feature in self.__input_features:
             w = feature.encoding_width(encoded_one_hot)
-            dec.append(feature.decode(X[:, curr_col : curr_col + w], denormalize, as_dataframe))
+            dec.append(
+                feature.decode(X[:, curr_col : curr_col + w], denormalize, as_dataframe)
+            )
             curr_col += w
         if as_dataframe:
             return pd.concat([pd.Series(d) for d in dec], axis=1)
@@ -376,8 +388,12 @@ class DataHandler:
 
         for cause, effect in self.__causal_inc:
             cause_i = self.features.index(cause)
-            pre_cause = cause.encode(pre_vals[cause_i], normalize=False, one_hot=False)[0]
-            pos_cause = cause.encode(post_vals[cause_i], normalize=False, one_hot=False)[0]
+            pre_cause = cause.encode(pre_vals[cause_i], normalize=False, one_hot=False)[
+                0
+            ]
+            pos_cause = cause.encode(
+                post_vals[cause_i], normalize=False, one_hot=False
+            )[0]
             if isinstance(cause, Categorical):
                 applied = pos_cause in cause.greater_than(pre_cause)
             elif isinstance(cause, Contiguous):
@@ -386,8 +402,12 @@ class DataHandler:
                 raise ValueError("invalid feature type")
             if applied:
                 effect_i = self.features.index(effect)
-                pre_effect = effect.encode(pre_vals[effect_i], normalize=False, one_hot=False)[0]
-                pos_effect = effect.encode(post_vals[effect_i], normalize=False, one_hot=False)[0]
+                pre_effect = effect.encode(
+                    pre_vals[effect_i], normalize=False, one_hot=False
+                )[0]
+                pos_effect = effect.encode(
+                    post_vals[effect_i], normalize=False, one_hot=False
+                )[0]
                 if isinstance(effect, Categorical):
                     if pos_effect not in effect.greater_than(pre_effect):
                         return False
@@ -398,7 +418,10 @@ class DataHandler:
                     raise ValueError("invalid feature type")
 
         for greater, smaller in self.__greater_than:
-            if post_vals[self.features.index(smaller)] > post_vals[self.features.index(greater)]:
+            if (
+                post_vals[self.features.index(smaller)]
+                > post_vals[self.features.index(greater)]
+            ):
                 return False
         return True
 

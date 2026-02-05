@@ -3,18 +3,16 @@ from typing import Any
 
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
 from spn.algorithms.Inference import EPSILON, log_likelihood
 from spn.algorithms.LearningWrappers import learn_mspn
 from spn.algorithms.Marginalization import marginalize
-from spn.structure.Base import Context, Leaf
+from spn.structure.Base import Context, Leaf, Product, Sum, get_topological_order
 from spn.structure.Base import Node as SPFlow_Node
-from spn.structure.Base import Product, Sum, get_topological_order
 from spn.structure.StatisticalTypes import MetaType
-
 from stochopt.data.DataHandler import DataHandler
 from stochopt.data.Features import Binary, Categorical, Contiguous, Feature, Mixed
 from stochopt.data.Types import DataLike
-from numpy.typing import NDArray
 
 
 class NodeType(
@@ -165,7 +163,9 @@ class SPN:
         if include_target:
             target = data_handler.target_feature
             if target is None:
-                raise ValueError("include_target is True but DataHandler has no target feature.")
+                raise ValueError(
+                    "include_target is True but DataHandler has no target feature."
+                )
             self.__feature_list: list[Feature] = data_handler.features + [target]
         else:
             self.__feature_list = data_handler.features
@@ -221,7 +221,9 @@ class SPN:
                 data, normalize=self.__normalize_data, one_hot=False
             )
         else:
-            res = self.__data_handler.encode(data, normalize=self.__normalize_data, one_hot=False)
+            res = self.__data_handler.encode(
+                data, normalize=self.__normalize_data, one_hot=False
+            )
 
         if isinstance(res, pd.Series):
             np_res: NDArray[np.float64] = res.to_numpy()
@@ -270,7 +272,8 @@ class SPN:
             if node.type == NodeType.SUM:
                 # print("Sum", [node_vals[n.id] for n in node.predecessors])
                 value = max(
-                    node_vals[n.id] + np.log(w) for n, w in zip(node.predecessors, node.weights)
+                    node_vals[n.id] + np.log(w)
+                    for n, w in zip(node.predecessors, node.weights)
                 )
                 # node_ex_vals[node.id] = logsumexp(
                 #     np.array([node_ex_vals[p.id] for p in node.predecessors]),
@@ -314,7 +317,10 @@ class SPN:
             if node.type == NodeType.SUM:
                 # print("Sum", [node_vals[n.id] for n in node.predecessors])
                 vals = np.array(
-                    [node_vals[n.id] + np.log(w) for n, w in zip(node.predecessors, node.weights)]
+                    [
+                        node_vals[n.id] + np.log(w)
+                        for n, w in zip(node.predecessors, node.weights)
+                    ]
                 )
                 max_value = vals.max()
                 expvals = []
@@ -336,7 +342,9 @@ class SPN:
 
         return node_vals[self.__mspn.id]
 
-    def piecewise_linear(self, x: float, x_points: list[float], y_points: list[float]) -> float:
+    def piecewise_linear(
+        self, x: float, x_points: list[float], y_points: list[float]
+    ) -> float:
         """
         Generated function!
         Performs piecewise linear interpolation.

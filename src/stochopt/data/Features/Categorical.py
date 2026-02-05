@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import numpy.typing as npt
+    pass
 
-from ..Types import CategValue, OneDimData, FloatArray
-
+from ..Types import CategValue, FloatArray, OneDimData
 from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
@@ -31,7 +30,9 @@ class Categorical(Feature):
             map_to = list(range(len(value_names)))
         self.__value_names = value_names
         self.__mapped_to = map_to
-        self._MAD = np.asarray(1.48 * np.nanstd(self.encode(training_vals, one_hot=True), axis=0))
+        self._MAD = np.asarray(
+            1.48 * np.nanstd(self.encode(training_vals, one_hot=True), axis=0)
+        )
         if ordering is not None and len(ordering) != len(value_names):
             raise ValueError("Ordering is not complete")
         self.__ordering: list[CategValue] | None = ordering
@@ -56,7 +57,9 @@ class Categorical(Feature):
             return self.__mapped_to
 
     @_check_dims_on_encode
-    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         masks = np.zeros_like(vals, dtype=bool)
         if one_hot:
             res = np.zeros((vals.shape[0], self.n_categorical_vals), dtype=np.float64)
@@ -112,7 +115,9 @@ class Categorical(Feature):
 
     @property
     def value_mapping(self) -> dict[CategValue, int]:
-        return {val: mapped for val, mapped in zip(self.__value_names, self.__mapped_to)}
+        return {
+            val: mapped for val, mapped in zip(self.__value_names, self.__mapped_to)
+        }
 
     def lower_than(self, num_val: int) -> list[int]:
         if self.__ordering is None:
@@ -136,13 +141,17 @@ class Categorical(Feature):
                 adding = True
         return greater
 
-    def allowed_change(self, pre_val: CategValue, post_val: CategValue, encoded=True) -> bool:
+    def allowed_change(
+        self, pre_val: CategValue, post_val: CategValue, encoded=True
+    ) -> bool:
         if not encoded:
             pre_val = self.encode([pre_val], one_hot=False)[0]
             post_val = self.encode([post_val], one_hot=False)[0]
         if self.modifiable:
             if self.monotone == Monotonicity.INCREASING:
-                return post_val in self.greater_than(int(pre_val)) or post_val == pre_val
+                return (
+                    post_val in self.greater_than(int(pre_val)) or post_val == pre_val
+                )
             if self.monotone == Monotonicity.DECREASING:
                 return post_val in self.lower_than(int(pre_val)) or post_val == pre_val
             return True

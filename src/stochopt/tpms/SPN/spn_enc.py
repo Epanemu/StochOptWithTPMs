@@ -1,4 +1,5 @@
-from typing import Any, Union, List
+from typing import Any, List, Union
+
 import numpy as np
 import pyomo.environ as pyo
 
@@ -113,11 +114,13 @@ def encode_histogram(
     )
     mio_block.upper = pyo.Constraint(
         mio_block.bins,
-        rule=lambda b, bin_i: b.not_in_bin[bin_i] * M >= in_var - breaks[bin_i + 1] + mio_epsilon,
+        rule=lambda b, bin_i: b.not_in_bin[bin_i] * M
+        >= in_var - breaks[bin_i + 1] + mio_epsilon,
     )
 
     mio_block.output = pyo.Constraint(
-        expr=sum((1 - mio_block.not_in_bin[i]) * vals[i] for i in range(n_bins)) == out_var
+        expr=sum((1 - mio_block.not_in_bin[i]) * vals[i] for i in range(n_bins))
+        == out_var
     )
 
 
@@ -180,7 +183,9 @@ def logsumexp_approximation_mip(
     if K_log < 2:
         raise ValueError("K_log must be at least 2.")
 
-    x_breakpoints = np.logspace(np.log(0.3), np.log(-np.log(L)), num=K_exp - 1, base=np.e).tolist()
+    x_breakpoints = np.logspace(
+        np.log(0.3), np.log(-np.log(L)), num=K_exp - 1, base=np.e
+    ).tolist()
     x_breakpoints.insert(0, 0)
     x_breakpoints = [-v for v in reversed(x_breakpoints)]
     x_breakpoints[0] = np.log(L)
@@ -208,7 +213,9 @@ def logsumexp_approximation_mip(
     y_points = [np.log(x) for x in x_points]
 
     block.sum = pyo.Var(bounds=(1, N), within=pyo.NonNegativeReals)
-    block.sum_constr = pyo.Constraint(expr=sum(block.exp_vals[i] for i in x_set) == block.sum)
+    block.sum_constr = pyo.Constraint(
+        expr=sum(block.exp_vals[i] for i in x_set) == block.sum
+    )
 
     block.lse = pyo.Var(bounds=(0, np.log(N)), within=pyo.NonNegativeReals)
     block.pw_constr2 = pyo.Piecewise(
@@ -332,7 +339,8 @@ def encode_spn(
 
             constr = pyo.Constraint(
                 rule=lambda b: (
-                    b.node_out[node.id] == sum(var * dens for var, dens in zip(in_vars, dens_ll))
+                    b.node_out[node.id]
+                    == sum(var * dens for var, dens in zip(in_vars, dens_ll))
                 )
             )
             mio_spn.add_component(f"CategLeaf{node.id}", constr)
@@ -348,7 +356,8 @@ def encode_spn(
         elif node.type == NodeType.PRODUCT:
             constr = pyo.Constraint(
                 rule=lambda b: (
-                    b.node_out[node.id] == sum(b.node_out[ch.id] for ch in node.predecessors)
+                    b.node_out[node.id]
+                    == sum(b.node_out[ch.id] for ch in node.predecessors)
                 )
             )
             mio_spn.add_component(f"ProdConstr{node.id}", constr)
@@ -367,7 +376,9 @@ def encode_spn(
                     preds_set,
                     rule=lambda b, pre_id: (
                         b.node_out[node.id]
-                        <= b.node_out[pre_id] + np.log(weights[pre_id]) + M_sum * slack_inds[pre_id]
+                        <= b.node_out[pre_id]
+                        + np.log(weights[pre_id])
+                        + M_sum * slack_inds[pre_id]
                     ),
                 )
             elif sum_approx == "upper":
@@ -406,7 +417,9 @@ def encode_spn(
                     preds_set,
                     rule=lambda b, pre_id: (
                         max_value
-                        <= b.node_out[pre_id] + np.log(weights[pre_id]) + M_sum * slack_inds[pre_id]
+                        <= b.node_out[pre_id]
+                        + np.log(weights[pre_id])
+                        + M_sum * slack_inds[pre_id]
                     ),
                 )
 
@@ -422,12 +435,18 @@ def encode_spn(
                 )
                 mio_spn.add_component(f"MaxSub{node.id}", subtraction)
                 lse = logsumexp_approximation_mip(logsumexp_block, sub_vars, **kwargs)
-                lse_out = pyo.Constraint(expr=mio_spn.node_out[node.id] == max_value + lse)
+                lse_out = pyo.Constraint(
+                    expr=mio_spn.node_out[node.id] == max_value + lse
+                )
                 mio_spn.add_component(f"LSE_node_out{node.id}", lse_out)
             else:
-                raise ValueError('sum_approx must be one of ["upper", "lower", "piecewise"]')
+                raise ValueError(
+                    'sum_approx must be one of ["upper", "lower", "piecewise"]'
+                )
             mio_spn.add_component(f"SumSlackConstr{node.id}", slacking)
-            one_tight = pyo.Constraint(expr=sum(slack_inds[i] for i in preds_set) == n_preds - 1)
+            one_tight = pyo.Constraint(
+                expr=sum(slack_inds[i] for i in preds_set) == n_preds - 1
+            )
             mio_spn.add_component(f"SumTightConstr{node.id}", one_tight)
 
             # implemented using SOS1 constraints, see here: https://www.gurobi.com/documentation/current/refman/general_constraints.html

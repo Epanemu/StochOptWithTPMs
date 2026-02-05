@@ -6,10 +6,9 @@ import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import numpy.typing as npt
+    pass
 
-from ..Types import CategValue, OneDimData, FloatArray
-
+from ..Types import CategValue, FloatArray, OneDimData
 from .Categorical import Categorical
 from .Contiguous import Contiguous
 from .Feature import Feature, Monotonicity, _check_dims_on_encode
@@ -61,7 +60,9 @@ class Mixed(Feature):
         # TODO somehow makes sure that the contiguous part is >= 0
 
     @_check_dims_on_encode
-    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         dimension = (1 + self.__categ_feat.n_categorical_vals) if one_hot else 1
         res = np.zeros(
             (vals.shape[0], dimension),
@@ -69,12 +70,18 @@ class Mixed(Feature):
         )
 
         categ_mask = np.isin(vals, self.__categ_value_names)
-        res[~categ_mask, 0] = self.__cont_feat.encode(vals[~categ_mask], normalize, one_hot)
+        res[~categ_mask, 0] = self.__cont_feat.encode(
+            vals[~categ_mask], normalize, one_hot
+        )
         if one_hot:
             res[categ_mask, 0] = self.__default_val
-            res[categ_mask, 1:] = self.__categ_feat.encode(vals[categ_mask], normalize, one_hot)
+            res[categ_mask, 1:] = self.__categ_feat.encode(
+                vals[categ_mask], normalize, one_hot
+            )
         else:
-            res[categ_mask, 0] = self.__categ_feat.encode(vals[categ_mask], normalize, one_hot)
+            res[categ_mask, 0] = self.__categ_feat.encode(
+                vals[categ_mask], normalize, one_hot
+            )
         return res.astype(np.float64)
 
     def decode(
@@ -152,7 +159,9 @@ class Mixed(Feature):
     def numeric_vals(self):
         return self.__categ_feat.numeric_vals
 
-    def allowed_change(self, pre_val: float, post_val: float, encoded: bool = True) -> bool:
+    def allowed_change(
+        self, pre_val: float, post_val: float, encoded: bool = True
+    ) -> bool:
         if self.modifiable:
             return True
         return pre_val == post_val

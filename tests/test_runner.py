@@ -2,13 +2,14 @@
 End-to-end tests for the experiment runner.
 """
 
-import pytest
-import tempfile
 import shutil
+import tempfile
 from pathlib import Path
+
+import pytest
+from hydra.utils import instantiate
 from omegaconf import OmegaConf
 from stochopt.runner import run_experiment
-from hydra.utils import instantiate
 
 
 class TestRunner:

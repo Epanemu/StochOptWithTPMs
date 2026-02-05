@@ -1,12 +1,12 @@
 import logging
-from typing import Any, Dict, List, Literal, Optional, Tuple, Union, Sequence
+from typing import Any, Dict, List, Literal, Optional, Union
 
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
 from stochopt.data.DataHandler import DataHandler
-from stochopt.data.Features import Contiguous, Categorical, Binary
-from stochopt.tpms.CNet.cnet import build_cnet_milp, DecisionNode, LeafNode
+from stochopt.data.Features import Binary, Categorical, Contiguous
+from stochopt.tpms.CNet.cnet import DecisionNode, LeafNode, build_cnet_milp
 from stochopt.tpms.CNet.cnet_learning import learn_cnet_tree
 from stochopt.tpms.tpm import TPM
 
@@ -63,7 +63,9 @@ class CNetTPM(TPM):
         categ_map: dict[int | str, list[int | str]] = {}
         for i, feature in enumerate(self.data_handler.features):
             if i in self.discretization_info:
-                categ_map[feature.name] = list(range(self.discretization_info[i]["n_bins"]))
+                categ_map[feature.name] = list(
+                    range(self.discretization_info[i]["n_bins"])
+                )
             elif isinstance(feature, (Categorical, Binary)):
                 categ_map[feature.name] = feature.orig_vals
             else:
@@ -114,7 +116,9 @@ class CNetTPM(TPM):
 
         return float(self.model.log_inference(d_sample.astype(int)))
 
-    def probability_approx(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def probability_approx(
+        self, sample: npt.NDArray[np.float64], **kwargs: Any
+    ) -> float:
         """
         Calculate an approximate log-probability. For CNet, this is the same as the exact.
         """
@@ -185,7 +189,9 @@ class CNetTPM(TPM):
 
                 # Discretize the feature
                 bin_indices = np.digitize(feat_data, bins) - 1
-                bin_indices = np.clip(bin_indices, 0, len(bins) - 2)  # Ensure valid range
+                bin_indices = np.clip(
+                    bin_indices, 0, len(bins) - 2
+                )  # Ensure valid range
 
                 discretized[:, feat_idx] = bin_indices
 
@@ -256,7 +262,11 @@ class CNetTPM(TPM):
                 else:
                     # Categorical/Discrete?
                     # We need to know the domain size
-                    dom_size = len(feature.numeric_vals) if hasattr(feature, "numeric_vals") else 2
+                    dom_size = (
+                        len(feature.numeric_vals)
+                        if hasattr(feature, "numeric_vals")
+                        else 2
+                    )
                     structured_inputs.append([None] * dom_size)
                 input_idx += 1
                 continue
@@ -281,11 +291,15 @@ class CNetTPM(TPM):
 
                     model_block.add_component(
                         f"bin_lb_feat{feat_idx}_bin{i}",
-                        pyo.Constraint(expr=continuous_var >= lb - M * (1 - bin_vars[i])),
+                        pyo.Constraint(
+                            expr=continuous_var >= lb - M * (1 - bin_vars[i])
+                        ),
                     )
                     model_block.add_component(
                         f"bin_ub_feat{feat_idx}_bin{i}",
-                        pyo.Constraint(expr=continuous_var <= ub + M * (1 - bin_vars[i])),
+                        pyo.Constraint(
+                            expr=continuous_var <= ub + M * (1 - bin_vars[i])
+                        ),
                     )
 
                 structured_inputs.append([bin_vars[i] for i in range(n_bins)])

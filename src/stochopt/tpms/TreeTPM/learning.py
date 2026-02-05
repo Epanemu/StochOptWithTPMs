@@ -1,12 +1,13 @@
 import logging
+from typing import Any, List, Optional, Set, Tuple
+
 import numpy as np
 import numpy.typing as npt
-from typing import Any, Dict, List, Optional, Set, Tuple
-from .nodes import TreeNode, LeafNode, DecisionNode
-from .histograms import JointHistogram
+
 from ...data.DataHandler import DataHandler
 from ...data.Features import Contiguous
-from stochopt.data.Types import DataLike
+from .histograms import JointHistogram
+from .nodes import DecisionNode, LeafNode, TreeNode
 
 logger = logging.getLogger(__name__)
 
@@ -97,7 +98,9 @@ class GreedyTopDownLearner:
         train_data = data[indices[val_size:]]
         val_data = data[indices[:val_size]]
 
-        return self._recursive_split(train_data, val_data, depth=0, current_bounds=initial_bounds)
+        return self._recursive_split(
+            train_data, val_data, depth=0, current_bounds=initial_bounds
+        )
 
     def _recursive_split(
         self,
@@ -121,7 +124,9 @@ class GreedyTopDownLearner:
         # Calculate base LL on val data (using a single leaf)
         # TODO use the log-likelihood of the leaf when created for the splitting in the parent node
         base_leaf = self._make_leaf(train, current_bounds)
-        base_ll = float(np.mean([base_leaf.log_inference(x) for x in val]) if len(val) > 0 else 0)
+        base_ll = float(
+            np.mean([base_leaf.log_inference(x) for x in val]) if len(val) > 0 else 0
+        )
 
         # Search for best split
         for i in range(N_attr):
@@ -136,7 +141,9 @@ class GreedyTopDownLearner:
                 ]
             ] = None
             if self.feature_types[i] == "continuous":
-                split_res = self._find_best_continuous_split(train, val, i, base_ll, current_bounds)
+                split_res = self._find_best_continuous_split(
+                    train, val, i, base_ll, current_bounds
+                )
             else:
                 split_res = self._find_best_categorical_split(
                     train, val, i, base_ll, current_bounds
@@ -156,7 +163,9 @@ class GreedyTopDownLearner:
             new_bounds = list(current_bounds)
             new_bounds[feat_idx] = bins[j]
 
-            child = self._recursive_split(train_subsets[j], val_subsets[j], depth + 1, new_bounds)
+            child = self._recursive_split(
+                train_subsets[j], val_subsets[j], depth + 1, new_bounds
+            )
             children.append(child)
 
         split_bins: List[Set[int]] | npt.NDArray[np.float64]
@@ -180,7 +189,9 @@ class GreedyTopDownLearner:
                 bin_sets.append(set(group))
             split_bins = bin_sets
 
-        return DecisionNode(feat_idx, children, self.feature_types[feat_idx], split_bins, weights)
+        return DecisionNode(
+            feat_idx, children, self.feature_types[feat_idx], split_bins, weights
+        )
 
     def _find_best_continuous_split(
         self,
@@ -222,7 +233,10 @@ class GreedyTopDownLearner:
             t_left, t_right = train[m_t], train[~m_t]
             v_left, v_right = val[m_v], val[~m_v]
 
-            if len(t_left) < self.min_samples / 2 or len(t_right) < self.min_samples / 2:
+            if (
+                len(t_left) < self.min_samples / 2
+                or len(t_right) < self.min_samples / 2
+            ):
                 continue
 
             # Quick LL estimation
@@ -352,7 +366,9 @@ class GreedyTopDownLearner:
             return (gain, feat_idx, branches, train_subsets, val_subsets, weights)
         return None
 
-    def _make_leaf(self, data: npt.NDArray[np.float64], current_bounds: List[Any]) -> LeafNode:
+    def _make_leaf(
+        self, data: npt.NDArray[np.float64], current_bounds: List[Any]
+    ) -> LeafNode:
         """
         Create a LeafNode with a JointHistogram for all features in the data,
         using the provided bounds to ensure all valid values have non-zero probability.
@@ -386,7 +402,9 @@ class GreedyTopDownLearner:
                     # Ensure they are within [c_min, c_max]
                     inner_edges = np.clip(inner_edges, c_min + 1e-6, c_max - 1e-6)
                     edges = np.unique(
-                        np.concatenate([np.array([c_min]), inner_edges, np.array([c_max])])
+                        np.concatenate(
+                            [np.array([c_min]), inner_edges, np.array([c_max])]
+                        )
                     )
                 else:
                     edges = np.linspace(c_min, c_max, n_bins_per_var + 1)

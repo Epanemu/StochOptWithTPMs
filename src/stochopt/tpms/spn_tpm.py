@@ -1,14 +1,14 @@
+import copy
+import logging
 from typing import Any, List, Optional, Union
+
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
-from stochopt.tpms.tpm import TPM
 from stochopt.data.DataHandler import DataHandler
 from stochopt.tpms.SPN.spn import SPN
 from stochopt.tpms.SPN.spn_enc import encode_spn
-import copy
-
-import logging
+from stochopt.tpms.tpm import TPM
 
 logger = logging.getLogger(__name__)
 
@@ -57,7 +57,9 @@ class SpnTPM(TPM):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]],
+        inputs: List[
+            Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]
+        ],
         solver: Optional[str] = None,
         **kwargs: Any,
     ) -> pyo.Var:
@@ -144,7 +146,9 @@ class SpnTPM(TPM):
 
         return float(self.marginalized_model.compute_ll(sample)[0])
 
-    def probability_approx(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def probability_approx(
+        self, sample: npt.NDArray[np.float64], **kwargs: Any
+    ) -> float:
         """
         Calculate an approximate log-probability.
 

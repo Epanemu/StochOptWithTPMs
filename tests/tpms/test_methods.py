@@ -2,10 +2,10 @@
 Integration tests for different optimization methods.
 """
 
-import pytest
+from typing import Dict, List
+
 import numpy as np
 from hydra.utils import instantiate
-from typing import Dict, List
 
 
 class TestOptimizationMethods:
@@ -19,8 +19,8 @@ class TestOptimizationMethods:
         scenarios = problem.generate_samples(n_samples=5, seed=42)
 
         # Build and solve model
-        model = problem.build_model(method="robust", scenarios=scenarios)
-        result = problem.solve()
+        problem.build_model(method="robust", scenarios=scenarios)
+        problem.solve()
 
         # Verify solution exists
         solution = problem.get_solution()
@@ -29,7 +29,7 @@ class TestOptimizationMethods:
 
         # Solution should satisfy all scenarios (robust)
         satisfied = problem.check_satisfaction(solution, scenarios)
-        assert np.all(satisfied == True), "Robust solution should satisfy all scenarios"
+        assert np.all(satisfied), "Robust solution should satisfy all scenarios"
 
     def test_sample_average_method(self, newsvendor_config):
         """Test sample average approximation method."""
@@ -37,10 +37,12 @@ class TestOptimizationMethods:
 
         scenarios = problem.generate_samples(n_samples=50, seed=42)
 
-        model = problem.build_model(
-            method="sample_average", scenarios=scenarios, risk_level=0.1  # Allow 10% violation
+        problem.build_model(
+            method="sample_average",
+            scenarios=scenarios,
+            risk_level=0.1,  # Allow 10% violation
         )
-        result = problem.solve()
+        problem.solve()
 
         solution = problem.get_solution()
         assert solution.shape == (2,)
@@ -48,7 +50,9 @@ class TestOptimizationMethods:
         # Check that satisfaction rate is at least (1 - risk_level)
         satisfied = problem.check_satisfaction(solution, scenarios)
         satisfaction_rate = np.mean(satisfied)
-        assert satisfaction_rate >= 0.9, f"Satisfaction rate {satisfaction_rate} too low"
+        assert (
+            satisfaction_rate >= 0.9
+        ), f"Satisfaction rate {satisfaction_rate} too low"
 
     def test_single_product_problem(self, newsvendor_config):
         """Test with single product."""
@@ -95,8 +99,8 @@ class TestTPMOptimization:
 
     def test_spn_method_basic(self, newsvendor_config):
         """Test basic TPM method with SPN."""
-        from stochopt.tpms.spn_tpm import SpnTPM
         from stochopt.data.DataHandler import DataHandler
+        from stochopt.tpms.spn_tpm import SpnTPM
 
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
@@ -108,11 +112,13 @@ class TestTPMOptimization:
 
         # Setup DataHandler
         categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
-        data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
+        data_handler = DataHandler(
+            tpm_data, feature_names=feat_names, categ_map=categ_map
+        )
 
         # Train TPM
-        tpm = SpnTPM()
-        tpm.train(tpm_data, data_handler, min_instances_slice=10, n_clusters=2)
+        tpm = SpnTPM(data_handler=data_handler)
+        tpm.train(tpm_data, min_instances_slice=10, n_clusters=2)
 
         # Build and solve model with TPM
         model = problem.build_model(
@@ -131,8 +137,8 @@ class TestTPMOptimization:
 
     def test_cnet_method_basic(self, newsvendor_config):
         """Test basic TPM method with CNet."""
-        from stochopt.tpms.cnet_tpm import CNetTPM
         from stochopt.data.DataHandler import DataHandler
+        from stochopt.tpms.cnet_tpm import CNetTPM
 
         problem = instantiate(newsvendor_config, solver="appsi_highs")
 
@@ -144,11 +150,13 @@ class TestTPMOptimization:
 
         # Setup DataHandler
         categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
-        data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
+        data_handler = DataHandler(
+            tpm_data, feature_names=feat_names, categ_map=categ_map
+        )
 
         # Train TPM
-        tpm = CNetTPM()
-        tpm.train(tpm_data, data_handler, min_instances_slice=10, n_clusters=2)
+        tpm = CNetTPM(data_handler=data_handler)
+        tpm.train(tpm_data, min_instances_slice=10, n_clusters=2)
 
         # Build and solve model with TPM
         model = problem.build_model(
@@ -167,8 +175,8 @@ class TestTPMOptimization:
 
     def test_tpm_with_different_risk_levels(self, newsvendor_config):
         """Test TPM with different risk levels."""
-        from stochopt.tpms.spn_tpm import SpnTPM
         from stochopt.data.DataHandler import DataHandler
+        from stochopt.tpms.spn_tpm import SpnTPM
 
         newsvendor_config.n_products = 1
         newsvendor_config.costs = [1.0]
@@ -184,10 +192,12 @@ class TestTPMOptimization:
             n_decisions=80, train_samples=train_samples, seed=42
         )
         categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
-        data_handler = DataHandler(tpm_data, feature_names=feat_names, categ_map=categ_map)
+        data_handler = DataHandler(
+            tpm_data, feature_names=feat_names, categ_map=categ_map
+        )
 
-        tpm = SpnTPM()
-        tpm.train(tpm_data, data_handler, min_instances_slice=15, n_clusters=2)
+        tpm = SpnTPM(data_handler=data_handler)
+        tpm.train(tpm_data, min_instances_slice=15, n_clusters=2)
 
         # Test different risk levels
         solutions = {}
@@ -201,7 +211,9 @@ class TestTPMOptimization:
         # All solutions should be valid
         for risk_level, sol in solutions.items():
             assert sol.shape == (1,)
-            assert np.all(sol >= 0), f"Solution for risk {risk_level} has negative values"
+            assert np.all(
+                sol >= 0
+            ), f"Solution for risk {risk_level} has negative values"
 
 
 class TestTPMDataGeneration:

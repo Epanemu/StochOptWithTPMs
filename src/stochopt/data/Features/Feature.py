@@ -2,15 +2,15 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from enum import Enum
-from typing import TYPE_CHECKING, Any, Callable, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Optional, Union
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import numpy.typing as npt
+    pass
 
-from ..Types import OneDimData, FloatArray
+from ..Types import FloatArray, OneDimData
 
 
 class Monotonicity(Enum):
@@ -52,7 +52,9 @@ class Feature(ABC):
             if isinstance(training_vals, pd.Series):
                 name = str(training_vals.name)
             else:
-                raise ValueError("Name of the feature must be specified in pd.Series or directly")
+                raise ValueError(
+                    "Name of the feature must be specified in pd.Series or directly"
+                )
         if training_vals.shape[0] == 0:
             raise ValueError(f"No data provided to feature {name}")
         self.__name = name
@@ -88,7 +90,9 @@ class Feature(ABC):
         """Returns the number of discrete values/bins for this feature."""
 
     @abstractmethod
-    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         """Encodes the vals"""
 
     @abstractmethod

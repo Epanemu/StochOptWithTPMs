@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, Union
+from typing import TYPE_CHECKING, Union
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import numpy.typing as npt
+    pass
 
-from ..Types import OneDimData, FloatArray
-
+from ..Types import FloatArray, OneDimData
 from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
@@ -55,7 +54,9 @@ class Contiguous(Feature):
         return vals * self._scale + self._shift
 
     @_check_dims_on_encode
-    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         if isinstance(vals, pd.Series):
             vals = vals.to_numpy()
         if normalize:

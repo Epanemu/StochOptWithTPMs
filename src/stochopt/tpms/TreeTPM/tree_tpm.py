@@ -1,16 +1,15 @@
 import logging
+from typing import Any, Dict, List, Optional, Union
+
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
-from typing import Any, Dict, List, Optional, Set, Union, Tuple
-
-from stochopt.tpms.tpm import TPM
 from stochopt.data.DataHandler import DataHandler
+from stochopt.tpms.tpm import TPM
 
-from .nodes import TreeNode, LeafNode, DecisionNode
-from .histograms import JointHistogram
-from .mapping import cnet_to_tree
 from .base import MIN_LOG_PROB
+from .histograms import JointHistogram
+from .nodes import DecisionNode, LeafNode, TreeNode
 
 logger = logging.getLogger(__name__)
 
@@ -54,8 +53,8 @@ class TreeTPM(TPM):
         Returns:
             TreeTPM: The trained instance.
         """
-        from stochopt.tpms.CNet.cnet_learning import learn_cnet_tree
         from stochopt.tpms.cnet_tpm import CNetTPM
+
         from .mapping import cnet_to_tree
 
         min_instances = kwargs.get("min_instances_slice", 50)
@@ -79,12 +78,16 @@ class TreeTPM(TPM):
 
         if cnet_temp.model is None:
             raise ValueError("Failed to train CNet temporary model")
-        self.root = cnet_to_tree(cnet_temp.model, getattr(cnet_temp, "discretization_info", {}))
+        self.root = cnet_to_tree(
+            cnet_temp.model, getattr(cnet_temp, "discretization_info", {})
+        )
         self.marginalized_root = None
         self.marginalized_keep_indices = None
         return self
 
-    def train_greedy_top_down(self, data: npt.NDArray[np.float64], **kwargs: Any) -> "TreeTPM":
+    def train_greedy_top_down(
+        self, data: npt.NDArray[np.float64], **kwargs: Any
+    ) -> "TreeTPM":
         """
         Train the TreeTPM using a greedy top-down splitting algorithm.
 
@@ -169,7 +172,9 @@ class TreeTPM(TPM):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]],
+        inputs: List[
+            Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]
+        ],
         solver: str = "appsi_highs",
         **kwargs: Any,
     ) -> pyo.Var:
@@ -195,7 +200,10 @@ class TreeTPM(TPM):
         if self.root is None:
             raise ValueError("TreeTPM has no root node trained.")
 
-        if self.data_handler is not None and len(inputs) != self.data_handler.n_features:
+        if (
+            self.data_handler is not None
+            and len(inputs) != self.data_handler.n_features
+        ):
             raise ValueError(
                 f"Input length mismatch: expected {self.data_handler.n_features} inputs, got {len(inputs)}"
             )
@@ -221,9 +229,9 @@ class TreeTPM(TPM):
 
         # 2. Collect unique nodes, assign them ids as an attribute
         all_nodes: List[TreeNode] = []
-        node_map: Dict[int, int] = (
-            {}
-        )  # Use a local map instead of attributes to avoid persistence issues
+        node_map: Dict[
+            int, int
+        ] = {}  # Use a local map instead of attributes to avoid persistence issues
 
         def _collect(n):
             if id(n) in node_map:
@@ -271,7 +279,6 @@ class TreeTPM(TPM):
             if isinstance(h, JointHistogram):
                 # Multi-variate encoding (covers univariate cases too)
                 shape = h.log_probs.shape
-                n_vars = len(h.scope)
 
                 # Create joint indicators for each cell
                 joint_indices = list(np.ndindex(shape))
@@ -279,7 +286,9 @@ class TreeTPM(TPM):
                 model_block.add_component(f"node_{node_id}_h_joint", joint_inds)
                 model_block.add_component(
                     f"node_{node_id}_h_one_joint",
-                    pyo.Constraint(expr=sum(joint_inds[idx] for idx in joint_indices) == 1),
+                    pyo.Constraint(
+                        expr=sum(joint_inds[idx] for idx in joint_indices) == 1
+                    ),
                 )
 
                 # Compute log-prob: sum over cells
@@ -291,13 +300,20 @@ class TreeTPM(TPM):
                     corr = 0
                     for i, b_idx in enumerate(idx):
                         if h.feature_types[i] == "continuous":
-                            corr += np.log(max(1e-12, h.bins[i][b_idx + 1] - h.bins[i][b_idx]))
+                            corr += np.log(
+                                max(1e-12, h.bins[i][b_idx + 1] - h.bins[i][b_idx])
+                            )
                         else:
                             corr += np.log(len(h.bins[i][b_idx]))
                     return lp - corr
 
-                expr = sum(joint_inds[idx] * _get_corrected_cell_lp(idx) for idx in joint_indices)
-                model_block.add_component(f"node_{node_id}_h_lp", pyo.Constraint(expr=term == expr))
+                expr = sum(
+                    joint_inds[idx] * _get_corrected_cell_lp(idx)
+                    for idx in joint_indices
+                )
+                model_block.add_component(
+                    f"node_{node_id}_h_lp", pyo.Constraint(expr=term == expr)
+                )
 
                 # Link variables to joint indicators
                 for i, var_idx in enumerate(h.scope):
@@ -306,7 +322,9 @@ class TreeTPM(TPM):
 
                     # Univariate indicators for this variable
                     v_inds = pyo.Var(range(n_bins), domain=pyo.Binary)
-                    model_block.add_component(f"node_{node_id}_h_v{var_idx}_inds", v_inds)
+                    model_block.add_component(
+                        f"node_{node_id}_h_v{var_idx}_inds", v_inds
+                    )
                     model_block.add_component(
                         f"node_{node_id}_h_v{var_idx}_sum",
                         pyo.Constraint(expr=sum(v_inds[b] for b in range(n_bins)) == 1),
@@ -343,7 +361,10 @@ class TreeTPM(TPM):
                                         f"node_{node_id}_h_v{var_idx}_b{j}_link",
                                         pyo.Constraint(
                                             expr=v_inds[j]
-                                            == sum(1.0 if v == var_inputs else 0.0 for v in group)
+                                            == sum(
+                                                1.0 if v == var_inputs else 0.0
+                                                for v in group
+                                            )
                                         ),
                                     )
                                 continue
@@ -430,7 +451,10 @@ class TreeTPM(TPM):
                         model_block.add_component(
                             f"node_{node_id}_b{i}_cat",
                             pyo.Constraint(
-                                expr=ind == sum(var_inputs[v] for v in group if v < len(var_inputs))
+                                expr=ind
+                                == sum(
+                                    var_inputs[v] for v in group if v < len(var_inputs)
+                                )
                             ),
                         )
                     elif hasattr(var_inputs, "is_expression_type") or isinstance(
@@ -441,13 +465,15 @@ class TreeTPM(TPM):
                         model_block.add_component(
                             f"node_{node_id}_b{i}_v_link",
                             pyo.Constraint(
-                                expr=ind == sum(1.0 if v == var_inputs else 0.0 for v in group)
+                                expr=ind
+                                == sum(1.0 if v == var_inputs else 0.0 for v in group)
                             ),
                         )
                     else:
                         matches = 1.0 if (var_inputs in group) else 0.0
                         model_block.add_component(
-                            f"node_{node_id}_b{i}_const", pyo.Constraint(expr=ind == matches)
+                            f"node_{node_id}_b{i}_const",
+                            pyo.Constraint(expr=ind == matches),
                         )
 
                 # Log-prob coupling: log_prob[node] = log_w + log_prob[child] IF ind == 1
@@ -469,7 +495,9 @@ class TreeTPM(TPM):
 
                 self._add_node_constraints(model_block, child, inputs)
 
-    def probability_approx(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def probability_approx(
+        self, sample: npt.NDArray[np.float64], **kwargs: Any
+    ) -> float:
         """
         Calculate an approximate log-probability. For TreeTPM, this currently
         just calls the exact log-probability.

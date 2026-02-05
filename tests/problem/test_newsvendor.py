@@ -2,7 +2,6 @@
 Unit tests for the newsvendor problem implementation.
 """
 
-import pytest
 import numpy as np
 from hydra.utils import instantiate
 
@@ -45,7 +44,9 @@ class TestNewsvendorProblem:
     def test_generate_decision_samples(self, newsvendor_problem, sample_demands):
         """Test decision variable sample generation."""
         x_samples = newsvendor_problem.generate_decision_samples(
-            n_samples=10, seed=42, xi=sample_demands[:, :2]  # Use first 2 columns for 2 products
+            n_samples=10,
+            seed=42,
+            xi=sample_demands[:, :2],  # Use first 2 columns for 2 products
         )
 
         assert x_samples.shape == (10, 2)
@@ -60,8 +61,8 @@ class TestNewsvendorProblem:
         satisfaction = newsvendor_problem.compute_satisfaction(demands, orders)
 
         assert satisfaction.shape == (2, 1)
-        assert satisfaction[0, 0] == True  # Both products satisfied
-        assert satisfaction[1, 0] == False  # Second product not satisfied
+        assert satisfaction[0, 0]  # Both products satisfied
+        assert not satisfaction[1, 0]  # Second product not satisfied
 
     def test_check_satisfaction(self, newsvendor_problem):
         """Test satisfaction checking for a solution."""
@@ -72,7 +73,7 @@ class TestNewsvendorProblem:
         satisfied = newsvendor_problem.check_satisfaction(solution, scenarios)
 
         assert satisfied.shape == (3,)
-        assert np.all(satisfied == True)  # All scenarios satisfied
+        assert np.all(satisfied)  # All scenarios satisfied
 
     def test_get_feature_names(self, newsvendor_problem):
         """Test feature name generation."""

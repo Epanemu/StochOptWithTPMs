@@ -1,15 +1,14 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional, List
+from typing import TYPE_CHECKING, List, Optional
 
 import numpy as np
 import pandas as pd
 
 if TYPE_CHECKING:
-    import numpy.typing as npt
+    pass
 
-from ..Types import CategValue, OneDimData, FloatArray
-
+from ..Types import CategValue, FloatArray, OneDimData
 from .Feature import Feature, Monotonicity, _check_dims_on_encode
 
 
@@ -35,10 +34,14 @@ class Binary(Feature):
         self.__negative_val: CategValue
         self.__positive_val: CategValue
         self.__negative_val, self.__positive_val = value_names
-        self._MAD = np.asarray([1.48 * np.nanstd(self.encode(training_vals, one_hot=False))])
+        self._MAD = np.asarray(
+            [1.48 * np.nanstd(self.encode(training_vals, one_hot=False))]
+        )
 
     @_check_dims_on_encode
-    def encode(self, vals: OneDimData, normalize: bool = True, one_hot: bool = True) -> FloatArray:
+    def encode(
+        self, vals: OneDimData, normalize: bool = True, one_hot: bool = True
+    ) -> FloatArray:
         positive = vals == self.__positive_val
         if np.any(vals[~positive] != self.__negative_val):
             unknown = vals[~positive] != self.__negative_val
@@ -80,7 +83,9 @@ class Binary(Feature):
         # return 2 if one_hot else 1
         return 1
 
-    def allowed_change(self, pre_val: CategValue, post_val: CategValue, encoded=True) -> bool:
+    def allowed_change(
+        self, pre_val: CategValue, post_val: CategValue, encoded=True
+    ) -> bool:
         if not encoded:
             pre_val = self.encode([pre_val], one_hot=False)[0]
             post_val = self.encode([post_val], one_hot=False)[0]

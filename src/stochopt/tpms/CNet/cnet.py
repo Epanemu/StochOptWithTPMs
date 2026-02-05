@@ -1,6 +1,7 @@
+from typing import Any, Generator, List, Tuple
+
 import numpy as np
 import pyomo.environ as pyo
-from typing import Any, Callable, Dict, Generator, List, Union, Tuple
 from stochopt.tpms.CNet.cnet_learning import DecisionNode, LeafNode
 
 
@@ -85,7 +86,9 @@ def _add_node_constraints(
 
             if parent_local_idx == -1:
                 # Root of CLTree: log P(x_i) = sum_v I(x_i=v) * log P(v)
-                expr = sum(inputs[var_idx][v] * max(lf[v, 0], -1000) for v in range(dom_size))
+                expr = sum(
+                    inputs[var_idx][v] * max(lf[v, 0], -1000) for v in range(dom_size)
+                )
                 model_block.add_component(
                     f"node_{node_id}_root_{i}_c", pyo.Constraint(expr=term == expr)
                 )
@@ -114,7 +117,8 @@ def _add_node_constraints(
                         model_block.add_component(
                             f"node_{node_id}_i{i}_v{v}_u{u}_c3",
                             pyo.Constraint(
-                                expr=z >= inputs[var_idx][v] + inputs[parent_var_idx][u] - 1
+                                expr=z
+                                >= inputs[var_idx][v] + inputs[parent_var_idx][u] - 1
                             ),
                         )
 
@@ -155,4 +159,6 @@ def _add_node_constraints(
 
             _add_node_constraints(model_block, child, node_ids, inputs)
     else:
-        raise NotImplementedError(f"Node type {type(node)} with no handling implemented.")
+        raise NotImplementedError(
+            f"Node type {type(node)} with no handling implemented."
+        )
