@@ -2,6 +2,7 @@ from typing import Any, Generator, List, Tuple
 
 import numpy as np
 import pyomo.environ as pyo
+
 from stochopt.tpms.CNet.cnet_learning import DecisionNode, LeafNode
 
 

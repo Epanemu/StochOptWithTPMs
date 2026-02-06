@@ -41,6 +41,9 @@ exclude_lines = [
 [tool.ruff.lint]
 select = ["I", "E", "F"]
 
+[tool.ruff]
+src = ["src"]
+
 [tool.mypy]
 python_version = "3.10"
 warn_return_any = true

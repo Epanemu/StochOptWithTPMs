@@ -4,6 +4,7 @@ from typing import Any, Dict, List, Literal, Optional, Union
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
+
 from stochopt.data.DataHandler import DataHandler
 from stochopt.data.Features import Binary, Categorical, Contiguous, Feature
 from stochopt.tpms.CNet.cnet import DecisionNode, LeafNode, build_cnet_milp

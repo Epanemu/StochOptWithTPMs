@@ -10,6 +10,7 @@ from spn.algorithms.Marginalization import marginalize
 from spn.structure.Base import Context, Leaf, Product, Sum, get_topological_order
 from spn.structure.Base import Node as SPFlow_Node
 from spn.structure.StatisticalTypes import MetaType
+
 from stochopt.data.DataHandler import DataHandler
 from stochopt.data.Features import Binary, Categorical, Contiguous, Feature, Mixed
 from stochopt.data.Types import DataLike

@@ -4,6 +4,7 @@ from typing import Any, List, Optional, Union
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
+
 from stochopt.data.DataHandler import DataHandler
 
 

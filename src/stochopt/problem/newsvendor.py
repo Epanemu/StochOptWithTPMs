@@ -4,6 +4,7 @@ import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
 from scipy.stats import expon, norm
+
 from stochopt.problem.base import BaseProblem
 from stochopt.tpms.tpm import TPM
 

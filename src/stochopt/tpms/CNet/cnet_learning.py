@@ -10,6 +10,7 @@ from typing import Any, Dict, List, Optional
 import networkx as nx
 import numpy as np
 import numpy.typing as npt
+
 from stochopt.data.DataHandler import DataHandler
 
 

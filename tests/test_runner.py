@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from hydra.utils import instantiate
+
 from stochopt.runner import run_experiment
 
 
