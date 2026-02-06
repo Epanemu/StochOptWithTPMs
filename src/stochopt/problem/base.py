@@ -175,7 +175,9 @@ class BaseProblem(ABC):
         x_samples_expanded = np.tile(x_samples, (n_samples, 1))
 
         # Compute satisfaction on expanded data
-        sat = self.compute_satisfaction(train_samples_expanded, x_samples_expanded)
+        sat = self.compute_satisfaction(
+            train_samples_expanded, x_samples_expanded
+        ).astype(float)
 
         # Combine: [xi, x, sat]
         data = np.concatenate([train_samples_expanded, x_samples_expanded, sat], axis=1)

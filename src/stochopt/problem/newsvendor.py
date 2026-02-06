@@ -3,7 +3,6 @@ from typing import Any, Dict, List, Optional, Tuple
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
-from omegaconf import ListConfig
 from scipy.stats import expon, norm
 from stochopt.problem.base import BaseProblem
 from stochopt.tpms.tpm import TPM
@@ -33,13 +32,9 @@ class NewsvendorProblem(BaseProblem):
         )
         self.demand_dist = demand_dist  # "normal", "exponential"
         self.demand_params = demand_params  # dict with mean, std, etc.
-        if isinstance(
-            self.demand_params["std"], (list, tuple, npt.NDArray, ListConfig)
-        ):
+        if isinstance(self.demand_params["std"], (list, tuple, np.ndarray)):
             assert len(self.demand_params["std"]) == self.n_products
-        if isinstance(
-            self.demand_params["mean"], (list, tuple, npt.NDArray, ListConfig)
-        ):
+        if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray)):
             assert len(self.demand_params["mean"]) == self.n_products
         self.x_density_type = x_density_type
 
@@ -54,18 +49,14 @@ class NewsvendorProblem(BaseProblem):
             # Handle per-product parameters if list, else assume shared/scalar
             mean = (
                 self.demand_params["mean"][i]
-                if isinstance(
-                    self.demand_params["mean"], (list, tuple, np.ndarray, ListConfig)
-                )
+                if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
                 else self.demand_params["mean"]
             )
 
             if self.demand_dist == "normal":
                 std = (
                     self.demand_params["std"][i]
-                    if isinstance(
-                        self.demand_params["std"], (list, tuple, np.ndarray, ListConfig)
-                    )
+                    if isinstance(self.demand_params["std"], (list, tuple, np.ndarray))
                     else self.demand_params["std"]
                 )
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
@@ -73,7 +64,7 @@ class NewsvendorProblem(BaseProblem):
                 d = expon.rvs(scale=mean, size=n_samples)
             else:
                 raise ValueError(f"Unknown distribution: {self.demand_dist}")
-            samples.append(d.reshape(-1, 1))
+            samples.append(d.reshape(n_samples, 1))
 
         return np.concatenate(samples, axis=1)
 
@@ -116,7 +107,7 @@ class NewsvendorProblem(BaseProblem):
                         self.demand_params["mean"][i]
                         if isinstance(
                             self.demand_params["mean"],
-                            (list, tuple, np.ndarray, ListConfig),
+                            (list, tuple, np.ndarray),
                         )
                         else self.demand_params["mean"]
                     )
@@ -126,7 +117,7 @@ class NewsvendorProblem(BaseProblem):
                             self.demand_params["std"][i]
                             if isinstance(
                                 self.demand_params["std"],
-                                (list, tuple, np.ndarray, ListConfig),
+                                (list, tuple, np.ndarray),
                             )
                             else self.demand_params["std"]
                         )
@@ -195,7 +186,9 @@ class NewsvendorProblem(BaseProblem):
             raise ValueError("Model has not been built yet.")
 
         try:
-            # TODO work with pyomo solve status here - infeasible, unbounded, timeout etc. - log that fact in mlflow? retrun it from this function and log it in mlflow in the runner calling this function
+            # TODO work with pyomo solve status here - infeasible, unbounded, timeout...
+            # - log that fact in mlflow? retrun it from this function and log it
+            # in mlflow in the runner calling this function
             solution = np.array(
                 [pyo.value(self.model.x[i]) for i in range(self.n_products)]
             )
