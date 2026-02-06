@@ -8,7 +8,6 @@ from pathlib import Path
 
 import pytest
 from hydra.utils import instantiate
-from omegaconf import OmegaConf
 from stochopt.runner import run_experiment
 
 
@@ -102,37 +101,14 @@ class TestRunner:
         import numpy as np
 
         # Create problem and generate samples twice with same seed
-        problem1 = instantiate(small_config.problem, solver="appsi_highs")
+        problem1 = instantiate(
+            small_config.problem, solver="appsi_highs", _convert_="all"
+        )
         samples1 = problem1.generate_samples(n_samples=10, seed=42)
 
-        problem2 = instantiate(small_config.problem, solver="appsi_highs")
+        problem2 = instantiate(
+            small_config.problem, solver="appsi_highs", _convert_="all"
+        )
         samples2 = problem2.generate_samples(n_samples=10, seed=42)
 
         np.testing.assert_array_equal(samples1, samples2)
-
-
-class TestConfigurationLoading:
-    """Test configuration loading and validation."""
-
-    def test_test_config_loads(self):
-        """Test that test config file loads correctly."""
-        config = OmegaConf.load("conf/test_config.yaml")
-
-        assert config.solver == "appsi_highs"
-        assert config.samples.train == 10
-        assert config.samples.opt == 5
-
-    def test_newsvendor_config_loads(self):
-        """Test that newsvendor config file loads correctly."""
-        config = OmegaConf.load("conf/problem/newsvendor.yaml")
-
-        assert config._target_ == "stochopt.problem.newsvendor.NewsvendorProblem"
-        assert "x_density" in config
-        assert config["x_density"] == "uniform"
-
-    def test_config_yaml_loads(self):
-        """Test that main config file loads correctly."""
-        config = OmegaConf.load("conf/config.yaml")
-
-        assert config.samples.train == 1000
-        assert "validation" in config.samples

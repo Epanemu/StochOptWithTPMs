@@ -145,7 +145,7 @@ class JointHistogram(Histogram):
                     return MIN_LOG_PROB
                 idx, log_size = self.val_maps[var_idx][val]
                 indices.append(idx)
-                total_log_correction += log_size
+                total_log_correction += float(log_size)
             else:
                 v = float(val)
                 if var_idx not in self.edges:
@@ -157,7 +157,9 @@ class JointHistogram(Histogram):
                 idx = int(np.searchsorted(edges, v, side="right") - 1)
                 idx = int(np.clip(idx, 0, self.log_probs.shape[i] - 1))
                 indices.append(idx)
-                total_log_correction += np.log(max(1e-12, edges[idx + 1] - edges[idx]))
+                total_log_correction += float(
+                    np.log(max(1e-12, edges[idx + 1] - edges[idx]))
+                )
 
         return float(self.log_probs[tuple(indices)] - total_log_correction)
 
