@@ -118,7 +118,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
             # 1. Instantiate Problem
             log.info(f"Instantiating problem: {cfg.problem._target_}")
-            problem = instantiate(cfg.problem, solver=cfg.solver)
+            problem = instantiate(cfg.problem, solver=cfg.solver, _convert_="all")
 
             # 2. Generate Data
             log.info(f"Generating {cfg.samples.train} training samples...")

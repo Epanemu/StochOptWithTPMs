@@ -7,7 +7,7 @@ class TestTPMPairing:
 
     def test_pairing_correctness(self, newsvendor_config):
         """Test that xi and x are paired correctly 1-to-1."""
-        problem = instantiate(newsvendor_config)
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Create known train_samples (xi)
         # 2 samples, 2 products

@@ -11,7 +11,7 @@ class TestNewsvendorProblem:
 
     def test_init(self, newsvendor_config):
         """Test problem initialization."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
         assert problem.n_products == 2
         assert len(problem.costs) == 2
         assert len(problem.prices) == 2
@@ -34,7 +34,7 @@ class TestNewsvendorProblem:
     def test_generate_samples_exponential(self, newsvendor_config):
         """Test sample generation with exponential distribution."""
         newsvendor_config.demand_dist = "exponential"
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples = problem.generate_samples(n_samples=100, seed=42)
 
@@ -158,8 +158,8 @@ class TestReproducibility:
     def test_generate_samples_normal_reproducibility(self, newsvendor_config):
         """Test that normal distribution samples are reproducible with same seed."""
         newsvendor_config.demand_dist = "normal"
-        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
-        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
@@ -169,7 +169,7 @@ class TestReproducibility:
     def test_generate_samples_normal_different_seeds(self, newsvendor_config):
         """Test that different seeds produce different samples."""
         newsvendor_config.demand_dist = "normal"
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples1 = problem.generate_samples(n_samples=20, seed=42)
         samples2 = problem.generate_samples(n_samples=20, seed=100)
@@ -179,8 +179,8 @@ class TestReproducibility:
     def test_generate_samples_exponential_reproducibility(self, newsvendor_config):
         """Test that exponential distribution samples are reproducible with same seed."""
         newsvendor_config.demand_dist = "exponential"
-        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
-        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
@@ -190,7 +190,7 @@ class TestReproducibility:
     def test_generate_samples_exponential_different_seeds(self, newsvendor_config):
         """Test that different seeds produce different exponential samples."""
         newsvendor_config.demand_dist = "exponential"
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples1 = problem.generate_samples(n_samples=20, seed=42)
         samples2 = problem.generate_samples(n_samples=20, seed=100)
@@ -274,8 +274,8 @@ class TestReproducibility:
         newsvendor_config.demand_params.std = [10.0, 15.0, 20.0]
         newsvendor_config.demand_dist = "normal"
 
-        problem1 = instantiate(newsvendor_config, solver="appsi_highs")
-        problem2 = instantiate(newsvendor_config, solver="appsi_highs")
+        problem1 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
+        problem2 = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         samples1 = problem1.generate_samples(n_samples=20, seed=42)
         samples2 = problem2.generate_samples(n_samples=20, seed=42)
@@ -299,7 +299,7 @@ class TestDensityConfiguration:
     def test_density_type_uniform(self, newsvendor_config):
         """Test uniform density type setting."""
         newsvendor_config.x_density = "uniform"
-        problem = instantiate(newsvendor_config)
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
         assert problem.x_density_type == "uniform"
 
     def test_density_type_default(self, newsvendor_config):
@@ -307,5 +307,5 @@ class TestDensityConfiguration:
         # Remove x_density if present
         if "x_density" in newsvendor_config:
             del newsvendor_config.x_density
-        problem = instantiate(newsvendor_config)
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
         assert problem.x_density_type == "uniform"

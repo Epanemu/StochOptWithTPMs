@@ -13,7 +13,7 @@ class TestOptimizationMethods:
 
     def test_robust_method_small(self, newsvendor_config):
         """Test robust method with small problem."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Generate small scenario set
         scenarios = problem.generate_samples(n_samples=5, seed=42)
@@ -33,7 +33,7 @@ class TestOptimizationMethods:
 
     def test_sample_average_method(self, newsvendor_config):
         """Test sample average approximation method."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         scenarios = problem.generate_samples(n_samples=50, seed=42)
 
@@ -62,7 +62,7 @@ class TestOptimizationMethods:
         newsvendor_config.demand_params.mean = [100.0]
         newsvendor_config.demand_params.std = [20.0]
 
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
         scenarios = problem.generate_samples(n_samples=5, seed=42)
 
         problem.build_model(method="robust", scenarios=scenarios)
@@ -74,7 +74,7 @@ class TestOptimizationMethods:
 
     def test_validation_workflow(self, newsvendor_config):
         """Test complete validation workflow."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Training samples
         train_samples = problem.generate_samples(n_samples=20, seed=42)
@@ -102,7 +102,7 @@ class TestTPMOptimization:
         from stochopt.data.DataHandler import DataHandler
         from stochopt.tpms.spn_tpm import SpnTPM
 
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
@@ -140,7 +140,7 @@ class TestTPMOptimization:
         from stochopt.data.DataHandler import DataHandler
         from stochopt.tpms.cnet_tpm import CNetTPM
 
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Generate training data
         train_samples = problem.generate_samples(n_samples=50, seed=42)
@@ -184,7 +184,7 @@ class TestTPMOptimization:
         newsvendor_config.demand_params.mean = [100.0]
         newsvendor_config.demand_params.std = [20.0]
 
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         # Generate and train TPM
         train_samples = problem.generate_samples(n_samples=80, seed=42)
@@ -221,7 +221,7 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_structure(self, newsvendor_config):
         """Test that TPM data has correct structure."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         train_samples = problem.generate_samples(n_samples=30, seed=42)
         tpm_data, feat_names = problem.generate_tpm_data(
@@ -242,7 +242,7 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_satisfaction_distribution(self, newsvendor_config):
         """Test that TPM data has balanced satisfaction."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         train_samples = problem.generate_samples(n_samples=100, seed=42)
         tpm_data, _ = problem.generate_tpm_data(
@@ -258,7 +258,7 @@ class TestTPMDataGeneration:
 
     def test_tpm_data_reproducibility(self, newsvendor_config):
         """Test that TPM data generation is reproducible with seed."""
-        problem = instantiate(newsvendor_config, solver="appsi_highs")
+        problem = instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
         train_samples = problem.generate_samples(n_samples=20, seed=42)
 

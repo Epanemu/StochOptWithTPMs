@@ -71,7 +71,7 @@ def newsvendor_config():
 @pytest.fixture
 def newsvendor_problem(newsvendor_config):
     """Create a newsvendor problem instance."""
-    return instantiate(newsvendor_config, solver="appsi_highs")
+    return instantiate(newsvendor_config, solver="appsi_highs", _convert_="all")
 
 
 @pytest.fixture
