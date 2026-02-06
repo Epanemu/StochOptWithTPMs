@@ -96,9 +96,11 @@ class DataHandler:
             else:
                 if len(np.unique(y)) > 2:
                     self.__target_feature = Categorical(y, name=target_name)
-                else:
+                elif len(np.unique(y)) == 2:
                     self.__target_feature = Binary(y, name=target_name)
                     # TODO make the target values specifiable
+                else:
+                    raise ValueError("Target feature has less than 2 unique values.")
         else:
             self.__target_feature = None
 
@@ -189,7 +191,7 @@ class DataHandler:
                         modifiable=modifiable,
                         ordering=categ_vals if ordered else None,
                     )
-                else:
+                elif len(categ_vals) == 2:
                     return Binary(
                         data,
                         categ_vals,
@@ -197,15 +199,23 @@ class DataHandler:
                         monotone=monotone,
                         modifiable=modifiable,
                     )
+                else:
+                    raise ValueError(
+                        f"Feature {feat_name} has less than 2 unique values."
+                    )
             else:
                 # fully categorical without pre-specified valuess
                 if len(np.unique(data)) > 2:
                     return Categorical(
                         data, name=feat_name, monotone=monotone, modifiable=modifiable
                     )
-                else:
+                elif len(np.unique(data)) == 2:
                     return Binary(
                         data, name=feat_name, monotone=monotone, modifiable=modifiable
+                    )
+                else:
+                    raise ValueError(
+                        f"Feature {feat_name} has less than 2 unique values."
                     )
 
     @property
