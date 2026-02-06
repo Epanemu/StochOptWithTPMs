@@ -34,18 +34,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
 
-    - name: Run unit tests
-      run: |
-        pytest tests/test_newsvendor.py -v --tb=short
-
-    - name: Run integration tests
-      run: |
-        pytest tests/test_methods.py -v --tb=short
-
-    - name: Run end-to-end tests
-      run: |
-        pytest tests/test_runner.py -v --tb=short
-
     - name: Run all tests with coverage
       run: |
         pytest tests/ --cov=src --cov-report=xml --cov-report=term -v
@@ -56,10 +44,6 @@ jobs:
         file: ./coverage.xml
         flags: unittests
         name: codecov-${{ matrix.python-version }}
-
-    - name: Test with small config
-      run: |
-        python main.py --config-name=test_config || echo "Test run completed"
 
   lint:
     runs-on: ubuntu-latest
