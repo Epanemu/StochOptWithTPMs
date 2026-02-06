@@ -103,7 +103,7 @@ class CNetTPM(TPM):
             float: Log-probability value.
         """
         if self.model is None:
-            return -np.inf
+            return float(-np.inf)
 
         # Discretize sample for inference
         d_sample = sample.copy()

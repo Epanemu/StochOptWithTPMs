@@ -133,7 +133,7 @@ class TreeTPM(TPM):
             float: Log-probability value.
         """
         if self.root is None:
-            return -np.inf
+            return float(-np.inf)
         return self.root.log_inference(sample)
 
     def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
