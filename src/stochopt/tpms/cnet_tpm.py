@@ -5,7 +5,7 @@ import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
 from stochopt.data.DataHandler import DataHandler
-from stochopt.data.Features import Binary, Categorical, Contiguous
+from stochopt.data.Features import Binary, Categorical, Contiguous, Feature
 from stochopt.tpms.CNet.cnet import DecisionNode, LeafNode, build_cnet_milp
 from stochopt.tpms.CNet.cnet_learning import learn_cnet_tree
 from stochopt.tpms.tpm import TPM
@@ -60,16 +60,10 @@ class CNetTPM(TPM):
         # Discretize continuous features
         discretized_data = self._discretize_data(data, discretization_method, n_bins)
 
-        categ_map: dict[int | str, list[int | str]] = {}
-        for i, feature in enumerate(self.data_handler.features):
-            if i in self.discretization_info:
-                categ_map[feature.name] = list(
-                    range(self.discretization_info[i]["n_bins"])
-                )
-            elif isinstance(feature, (Categorical, Binary)):
-                categ_map[feature.name] = feature.orig_vals
-            else:
-                raise ValueError(f"Unsupported feature type: {type(feature)}")
+        categ_map: dict[int | str, list[int | str]] = {
+            f.name: f.orig_vals if isinstance(f, (Categorical, Binary)) else []
+            for f in self.data_handler.features
+        }
         self.discrete_data_handler = DataHandler(
             discretized_data,
             categ_map=categ_map,
@@ -87,6 +81,10 @@ class CNetTPM(TPM):
             min_instances_slice=min_instances_slice,
             max_depth=max_depth,
         )
+        # store parameters for retraining marginalized models
+        self._discretized_data = discretized_data
+        self._min_instances_slice = min_instances_slice
+        self._max_depth = max_depth
         return self
 
     def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
@@ -202,13 +200,15 @@ class CNetTPM(TPM):
                     "method": method,
                     "feature_name": feature.name,
                 }
-
+            else:
+                # This is a categorical feature
+                discretized[:, feat_idx] = data[:, feat_idx]
         return discretized
 
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, list[float], List[pyo.Var]]]],
+        inputs: List[Optional[Union[pyo.Var, float, List[float], List[pyo.Var]]]],
         solver: str = "gurobi",
         **kwargs: Any,
     ) -> pyo.Var:
@@ -231,6 +231,46 @@ class CNetTPM(TPM):
         if self.model is None:
             raise ValueError("CNet model not trained.")
 
+        if any(x is None for x in inputs):
+            marginalized_data = self._discretized_data
+            kept_indices = np.where(~np.array([x is None for x in inputs]))[0]
+            marginalized_data = marginalized_data[:, kept_indices]
+            kept_feature_names = [
+                self.data_handler.feature_names[i] for i in kept_indices
+            ]
+            categ_map: dict[int | str, list[int | str]] = {
+                f.name: f.orig_vals if isinstance(f, (Categorical, Binary)) else []
+                for f in self.data_handler.features
+                if f.name in kept_feature_names
+            }
+            marginalized_data_handler = DataHandler(
+                marginalized_data,
+                categ_map=categ_map,
+                feature_names=kept_feature_names,
+            )
+            self.marginalized_model = learn_cnet_tree(
+                marginalized_data_handler,
+                marginalized_data.astype(np.float64),
+                min_instances_slice=self._min_instances_slice,
+                max_depth=self._max_depth,
+            )
+            kept_inputs = [inputs[i] for i in kept_indices]
+            structured_inputs = self._create_discretized_inputs(
+                model_block,
+                kept_inputs,
+                feature_map={i: self.data_handler.features[i] for i in kept_indices},
+            )
+
+            log_prob_vars, root_id = build_cnet_milp(
+                self.marginalized_model,
+                model_block,
+                structured_inputs,
+                solver=solver,
+                **kwargs,
+            )
+            marg_root_var: pyo.Var = log_prob_vars[root_id]
+            return marg_root_var
+
         structured_inputs = self._create_discretized_inputs(model_block, inputs)
 
         log_prob_vars, root_id = build_cnet_milp(
@@ -241,19 +281,24 @@ class CNetTPM(TPM):
         return root_var
 
     def _create_discretized_inputs(
-        self, model_block: pyo.Block, inputs: List[Any]
+        self,
+        model_block: pyo.Block,
+        inputs: List[Any],
+        feature_map: Optional[Dict[int, Feature]] = None,
     ) -> List[List[Any]]:
         """
         Create discretized/binned versions of continuous input variables.
         Returns a nested list: [feat_idx][val]
         """
-        structured_inputs = []
+        structured_inputs: List[List[Any]] = []
         input_idx = 0  # Track position in inputs list
 
-        if self.data_handler is None:
-            raise ValueError("Data handler not initialized.")
+        if feature_map is None:
+            if self.data_handler is None:
+                raise ValueError("Data handler not initialized.")
+            feature_map = {i: f for i, f in enumerate(self.data_handler.features)}
 
-        for feat_idx, feature in enumerate(self.data_handler.features):
+        for feat_idx, feature in feature_map.items():
             if inputs[input_idx] is None:
                 # Marginalized variable
                 if feat_idx in self.discretization_info:
@@ -306,18 +351,20 @@ class CNetTPM(TPM):
 
             else:
                 # Already discrete or categorical
-                # We assume the input here is a list of variables if it was already one-hot,
-                # or a single variable if it's meant to be used as index.
-                # Actually, our TPM layer usually passes a list of one-hot variables for discrete features.
-                # Let's assume 'inputs[input_idx]' is already a list or we wrap it.
                 val = inputs[input_idx]
                 if isinstance(val, list):
                     structured_inputs.append(val)
+                elif isinstance(val, pyo.Var):
+                    structured_inputs.append(val)
+                elif isinstance(feature, (Categorical, Binary)) and isinstance(
+                    val, int
+                ):
+                    # if a single value, it is assumed to be an index - expand it to an encoded list
+                    encoded_val = [0] * len(feature.orig_vals)
+                    encoded_val[val] = 1
+                    structured_inputs.append(encoded_val)
                 else:
-                    # If it's a single variable, we might need to one-hot it if the CNet expects it.
-                    # But CNet expects structured [feat][val].
-                    # Let's assume it's already structured or provided as such.
-                    structured_inputs.append([val])
+                    raise ValueError(f"Unsupported input type: {type(val)}")
 
             input_idx += 1
 

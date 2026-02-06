@@ -49,6 +49,9 @@ def build_cnet_milp(
 
     # Add log_prob variables for each node
     model_block.log_prob = pyo.Var(node_ids, bounds=(-1000, 0))
+    # if any of inputs is none, raise an error
+    if any(any(inval is None for inval in inval_list) for inval_list in inputs):
+        raise ValueError("Marginalized inputs cannot be modelled")
 
     # Recursive constraint adding
     _add_node_constraints(model_block, cnet_model, node_ids, inputs)
