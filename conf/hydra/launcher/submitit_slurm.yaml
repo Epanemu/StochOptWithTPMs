@@ -1,0 +1,32 @@
+# @package hydra.launcher
+# Hydra SLURM Launcher Configuration
+# This enables automatic job submission to SLURM cluster
+# Each multirun job will be submitted as a separate SLURM job
+
+submitit_folder: ${hydra.sweep.dir}/.submitit/%j
+timeout_min: 1440
+cpus_per_task: 16
+gpus_per_node: 0
+tasks_per_node: 1
+mem_gb: 64
+nodes: 1
+name: ${hydra.job.name}
+mail_on_fail: true
+mail_user: "nemecj38@fel.cvut.cz"
+
+# SLURM partition (adjust based on your cluster)
+partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", etc.
+
+# Additional SLURM parameters
+# Uncomment and modify as needed for your cluster
+# qos: null
+# account: null
+# constraint: null
+# exclude: null
+# gres: null
+# ntasks_per_node: null
+# signal_delay_s: 120
+# max_num_timeout: 0
+# additional_parameters: {}
+# array_parallelism: 256
+# setup: []

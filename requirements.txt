@@ -1,0 +1,40 @@
+# Core optimization and modeling
+pyomo>=6.0.0
+numpy>=1.20.0,<2.0.0  # SPFlow requires numpy <2.0
+scipy>=1.7.0,<1.12.0  # Pin to <1.12 for SPFlow compatibility (NINF constant)
+
+# Machine Learning / TPMs + dependencies
+mpmath==1.3.0
+statsmodels==0.14.0
+networkx==3.2.1
+scikit-learn>=1.0.0  # For KMeans discretization in CNetTPM
+git+https://github.com/SPFlow/SPFlow@d01f71d6618e95267609c1899d8e8e95d64965e5
+
+# Experiment tracking
+mlflow>=2.0.0
+psycopg2-binary>=2.9.0  # PostgreSQL support for MLflow (recommended for SLURM)
+
+# Configuration management
+setuptools>=65.0.0  # Required by submitit (not included in Python 3.12+ venvs)
+hydra-core>=1.3.0
+hydra-submitit-launcher>=1.2.0  # For SLURM cluster support
+omegaconf>=2.3.0
+
+# Data handling
+pandas>=1.3.0
+
+# Solvers
+# Open-source solver for testing and CI
+highspy>=1.5.0  # HiGHS solver (recommended for CI/testing)
+
+# Commercial solvers (require separate licenses)
+# gurobipy>=10.0.0  # Uncomment if using Gurobi (requires license)
+# cplex>=22.0.0     # Uncomment if using CPLEX (requires license)
+
+# Development and testing
+pytest>=7.0.0
+pytest-cov>=4.0.0
+pytest-xdist>=3.0.0  # Parallel test execution
+black>=22.0.0        # Code formatting
+mypy>=0.990          # Type checking
+pre-commit>=3.0.0    # Pre-commit hooks

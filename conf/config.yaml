@@ -1,0 +1,26 @@
+defaults:
+  - problem: news/newsvendor
+  - method: robust
+  - _self_
+
+seed: 42
+risk_level: 0.05
+solver: gurobi
+
+samples:
+  opt: 100
+  train: 1000
+  validation: 5000
+  test: 10000
+  train_decisions: 1000
+
+mlflow:
+  tracking_uri: "sqlite:///mlflow.db"
+  experiment_name: "SO_${problem.name}_${method.name}"
+
+hydra:
+  run:
+    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+  sweep:
+    dir: multirun/${problem.name}/${method.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+    subdir: ${hydra.job.num}

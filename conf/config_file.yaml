@@ -1,0 +1,18 @@
+# Configuration for file-based tracking (Alternative to SQLite)
+#
+# Better than SQLite for concurrent access, but not as good as PostgreSQL
+# Use this if you cannot set up PostgreSQL
+#
+# Usage: python main.py --config-name=config_file
+
+defaults:
+  - config
+  - _self_
+
+mlflow:
+  # File-based tracking - update path to your shared filesystem
+  # Use absolute path to a directory accessible from all compute nodes
+  tracking_uri: "file:./mlruns"
+  experiment_name: "{problem.name}_{method.name}"
+
+# All other settings inherited from config.yaml
