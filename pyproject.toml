@@ -23,7 +23,7 @@ source = ["stochopt"]
 omit = [
     "*/tests/*",
     "*/__init__.py",
-    "*/data/*",  # Skip data module for now
+    "*/data/*",
 ]
 
 [tool.coverage.report]
