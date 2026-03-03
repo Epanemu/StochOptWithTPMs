@@ -86,6 +86,8 @@ class CNetTPM(TPM):
         self._discretized_data = discretized_data
         self._min_instances_slice = min_instances_slice
         self._max_depth = max_depth
+        self._kept_indices: Optional[npt.NDArray[np.int64]] = None
+        self.marginalized_model: Optional[DecisionNode | LeafNode] = None
         return self
 
     def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
@@ -104,6 +106,16 @@ class CNetTPM(TPM):
         if self.model is None:
             return float(-np.inf)
 
+        marginalized = False
+        nones = np.array([i is None for i in sample], dtype=bool)
+        if any(nones):
+            if self._kept_indices is None or set(np.where(~nones)[0]) != set(
+                self._kept_indices
+            ):
+                return float(-np.inf)
+            else:
+                marginalized = True
+                sample[nones] = 0
         # Discretize sample for inference
         d_sample = sample.copy()
         if hasattr(self, "discretization_info"):
@@ -113,6 +125,11 @@ class CNetTPM(TPM):
                 bin_idx = np.digitize(val, bins) - 1
                 d_sample[feat_idx] = np.clip(bin_idx, 0, info["n_bins"] - 1)
 
+        if marginalized:
+            if self.marginalized_model is None:
+                raise ValueError("Marginalized CNet model not trained.")
+            sample[nones] = None
+            return float(self.marginalized_model.log_inference(d_sample.astype(int)))
         return float(self.model.log_inference(d_sample.astype(int)))
 
     def probability_approx(
@@ -249,6 +266,7 @@ class CNetTPM(TPM):
                 categ_map=categ_map,
                 feature_names=kept_feature_names,
             )
+            self._kept_indices = kept_indices
             self.marginalized_model = learn_cnet_tree(
                 marginalized_data_handler,
                 marginalized_data.astype(np.float64),
