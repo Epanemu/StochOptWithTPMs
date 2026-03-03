@@ -27,7 +27,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=100 \
   samples.train=100 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 # Run 2: opt=train=1000
 echo "Running experiments with 1000 samples..."
@@ -38,7 +38,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 # Run 3: opt=train=10000
 echo "Running experiments with 10000 samples..."
@@ -49,7 +49,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=10000 \
   samples.train=10000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 echo ""
 echo "All experiments completed!"
