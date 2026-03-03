@@ -9,10 +9,10 @@
 # - Products: 1, 5, 10, 50, 100
 # - Different distribution parameters
 #
-# Total experiments: 6 methods × 3 sample sizes × 5 problem variants = 90 runs
+# Total experiments: 6 methods × 3 sample sizes × 6 problem variants = 108 runs
 
 echo "Starting multirun experiments..."
-echo "This will run 90 experiments (6 methods × 3 sample sizes × 5 problem variants)"
+echo "This will run 108 experiments (6 methods × 3 sample sizes × 6 problem variants)"
 echo ""
 
 # Using Hydra's multirun with glob syntax

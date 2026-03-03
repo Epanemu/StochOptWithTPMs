@@ -8,11 +8,11 @@
 # - Products: 1, 5, 10, 50, 100
 # - Different distribution parameters
 #
-# Total experiments: 6 methods × 3 sample sizes × 5 problem variants = 90 runs
+# Total experiments: 6 methods × 3 sample sizes × 4 problem variants = 72 runs
 # Each run will be submitted as a separate SLURM job
 
 echo "=== Starting SLURM Multirun Experiments ==="
-echo "This will submit 90 jobs to the SLURM cluster (6 methods × 3 sample sizes × 5 problem variants)"
+echo "This will submit 72 jobs to the SLURM cluster (6 methods × 3 sample sizes × 4 problem variants)"
 echo ""
 
 # Read MLflow server URI from connection file (if available)
