@@ -3,16 +3,16 @@
 # This script submits each experiment as a separate SLURM job
 #
 # This script runs experiments with:
-# - Methods: tpm (SPN), robust, sample_average (SAA)
+# - Methods: tpm_spn (SPN), tpm_cnet (CNet), tpm_tree_cnet (Tree trained as CNet), tpm_tree_greedy (Tree trained greedily), robust, sample_average (SAA)
 # - Sample sizes: 100, 1000, 10000 (opt and train equal)
 # - Products: 1, 5, 10, 50, 100
 # - Different distribution parameters
 #
-# Total experiments: 3 methods × 3 sample sizes × 5 problem variants = 45 runs
+# Total experiments: 6 methods × 3 sample sizes × 5 problem variants = 90 runs
 # Each run will be submitted as a separate SLURM job
 
 echo "=== Starting SLURM Multirun Experiments ==="
-echo "This will submit 45 jobs to the SLURM cluster (3 methods × 3 sample sizes × 5 problem variants)"
+echo "This will submit 90 jobs to the SLURM cluster (6 methods × 3 sample sizes × 5 problem variants)"
 echo ""
 
 # Read MLflow server URI from connection file (if available)
@@ -70,10 +70,10 @@ python main.py \
   --config-name=multirun_config \
   --multirun \
   $MLFLOW_ARG \
-  method=tpm,robust,sample_average \
+  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=100 \
   samples.train=100 \
-  problem=newsvendor,newsvendor_5prod_low,newsvendor_10prod_med #,newsvendor_50prod_high,newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med #,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 # Run 2: opt=train=1000
 echo "→ Submitting experiments with 1000 samples to SLURM..."
@@ -81,10 +81,10 @@ python main.py \
   --config-name=multirun_config \
   --multirun \
   $MLFLOW_ARG \
-  method=tpm,robust,sample_average \
+  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=newsvendor,newsvendor_5prod_low,newsvendor_10prod_med #,newsvendor_50prod_high,newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med #,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 # Run 3: opt=train=10000
 echo "→ Submitting experiments with 10000 samples to SLURM..."
@@ -92,10 +92,10 @@ python main.py \
   --config-name=multirun_config \
   --multirun \
   $MLFLOW_ARG \
-  method=tpm,robust,sample_average \
+  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=10000 \
   samples.train=10000 \
-  problem=newsvendor,newsvendor_5prod_low,newsvendor_10prod_med #,newsvendor_50prod_high,newsvendor_100prod_veryhigh
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med #,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
 
 echo ""
 echo "=== All Jobs Submitted to SLURM! ==="
