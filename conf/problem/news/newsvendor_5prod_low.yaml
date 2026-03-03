@@ -9,3 +9,4 @@ demand_params:
   mean: [40.0, 55.0, 60.0, 45.0, 50.0]
   std: [8.0, 10.0, 12.0, 9.0, 11.0]
 x_density: "uniform"
+correlated: false

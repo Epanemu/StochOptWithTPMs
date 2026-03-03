@@ -27,6 +27,7 @@ demand_params:
         59.0, 58.0, 64.0, 56.0, 60.0, 66.0, 55.0, 70.0, 57.0, 62.0,
         58.0, 63.0, 57.0, 60.0, 65.0, 56.0, 61.0, 59.0, 58.0, 64.0]
 x_density: "uniform"
+correlated: false
 
 # Override SLURM resources for large problem (100 products)
 hydra:

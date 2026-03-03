@@ -22,6 +22,7 @@ class NewsvendorProblem(BaseProblem):
         demand_dist: str,
         demand_params: Dict[str, Any],
         x_density_type: str = "uniform",
+        correlated: bool = False,
         solver: str = "gurobi",
         **kwargs,
     ):
@@ -38,12 +39,49 @@ class NewsvendorProblem(BaseProblem):
         if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray)):
             assert len(self.demand_params["mean"]) == self.n_products
         self.x_density_type = x_density_type
+        self.correlated = correlated
+
+    def _generate_correlated_samples(
+        self,
+        n_samples: int,
+        means: npt.NDArray[np.float64],
+        stds: npt.NDArray[np.float64],
+    ) -> npt.NDArray[np.float64]:
+        common = norm.rvs(size=(n_samples, 1))
+        noise = norm.rvs(scale=0.1, size=(n_samples, self.n_products))
+        samples = np.maximum(means + stds * (common + noise), 0)
+        return np.array(samples, dtype=np.float64)
+
+    def _generate_correlated_samples_in_total(
+        self, n_samples: int, n_products: int, total: float, std: float
+    ) -> npt.NDArray[np.float64]:
+        # generates samples such that sum of demands is equal to total
+        total_samples = norm.rvs(loc=total, scale=std, size=(n_samples, 1))
+        proportions = np.random.dirichlet(np.ones(n_products), size=n_samples)
+        return np.array(total_samples * proportions, dtype=np.float64)
 
     def generate_samples(
         self, n_samples: int, seed: Optional[int] = None
     ) -> npt.NDArray[np.float64]:
         if seed is not None:
             np.random.seed(seed)
+
+        if self.correlated:
+            # generate half of products correlated and half correlated in total
+            correlated_samples = self._generate_correlated_samples(
+                n_samples // 2,
+                self.demand_params["mean"][: self.n_products // 2],
+                self.demand_params["std"][: self.n_products // 2],
+            )
+            correlated_total_samples = self._generate_correlated_samples_in_total(
+                n_samples // 2,
+                self.n_products // 2,
+                sum(self.demand_params["mean"][self.n_products // 2 :]),
+                sum(self.demand_params["std"][self.n_products // 2 :]),
+            )
+            return np.concatenate(
+                [correlated_samples, correlated_total_samples], axis=1
+            )
 
         samples = []
         for i in range(self.n_products):
