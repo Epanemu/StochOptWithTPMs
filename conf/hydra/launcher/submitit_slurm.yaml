@@ -11,14 +11,10 @@ tasks_per_node: 1
 mem_gb: 64
 nodes: 1
 name: ${hydra.job.name}
-mail_on_fail: true
-mail_user: "nemecj38@fel.cvut.cz"
-
 # SLURM partition (adjust based on your cluster)
 partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", etc.
 
 # Additional SLURM parameters
-# Uncomment and modify as needed for your cluster
 # qos: null
 # account: null
 # constraint: null
@@ -27,6 +23,8 @@ partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", et
 # ntasks_per_node: null
 # signal_delay_s: 120
 # max_num_timeout: 0
-# additional_parameters: {}
+additional_parameters:
+  mail-type: "FAIL"
+  mail-user: "nemecj38@fel.cvut.cz"
 # array_parallelism: 256
 # setup: []
