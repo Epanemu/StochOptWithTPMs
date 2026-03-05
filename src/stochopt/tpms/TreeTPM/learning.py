@@ -123,10 +123,15 @@ class GreedyTopDownLearner:
 
         # Calculate base LL on val data (using a single leaf)
         # TODO use the log-likelihood of the leaf when created for the splitting in the parent node
-        base_leaf = self._make_leaf(train, current_bounds)
-        base_ll = float(
-            np.mean([base_leaf.log_inference(x) for x in val]) if len(val) > 0 else 0
-        )
+        try:
+            base_leaf = self._make_leaf(train, current_bounds)
+            base_ll = float(
+                np.mean([base_leaf.log_inference(x) for x in val])
+                if len(val) > 0
+                else 0
+            )
+        except ValueError:
+            base_ll = float("-inf")
 
         # Search for best split
         for i in range(N_attr):
@@ -153,6 +158,10 @@ class GreedyTopDownLearner:
                 best_gain, best_split = split_res[0], split_res[1:]
 
         if best_split is None or best_gain <= 0:
+            if best_gain == -np.inf:
+                raise ValueError(
+                    "No split found, possibly due to leaf histograms being too large."
+                )
             return base_leaf
 
         feat_idx, bins, train_subsets, val_subsets, weights = best_split
@@ -245,8 +254,12 @@ class GreedyTopDownLearner:
             new_bounds_l[feat_idx] = (current_feature_bounds[0], t)
             new_bounds_r[feat_idx] = (t, current_feature_bounds[1])
 
-            l_leaf = self._make_leaf(t_left, new_bounds_l)
-            r_leaf = self._make_leaf(t_right, new_bounds_r)
+            try:
+                l_leaf = self._make_leaf(t_left, new_bounds_l)
+                r_leaf = self._make_leaf(t_right, new_bounds_r)
+            except ValueError:
+                # maybe try to eval the split differently here?
+                continue
 
             w_l = len(t_left) / len(train)
             w_r = len(t_right) / len(train)
@@ -356,7 +369,10 @@ class GreedyTopDownLearner:
 
             new_bounds = list(current_bounds)
             new_bounds[feat_idx] = branches[j]
-            leaf = self._make_leaf(train_subsets[j], new_bounds)
+            try:
+                leaf = self._make_leaf(train_subsets[j], new_bounds)
+            except ValueError:
+                return None
             split_ll += np.sum([leaf.log_inference(x) for x in val_subsets[j]])
             valid_val += len(val_subsets[j])
 
@@ -443,7 +459,7 @@ class GreedyTopDownLearner:
         total_cells = int(np.prod(shape))
         if total_cells > 1_000_000:
             raise ValueError(
-                f"Number of cells in joint histogram is too large: {total_cells}. Try reducing n_bins_per_var."
+                f"Number of cells in joint histogram of shape {shape} is too large: {total_cells}. Try reducing n_bins_per_var."
             )
 
         # Compute joint counts
