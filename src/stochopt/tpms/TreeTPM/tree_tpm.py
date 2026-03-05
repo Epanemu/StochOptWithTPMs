@@ -135,6 +135,18 @@ class TreeTPM(TPM):
         """
         if self.root is None:
             return float(-np.inf)
+
+        keep_indices = [i for i, val in enumerate(sample) if val is not None]
+        if len(keep_indices) < len(sample):
+            if (
+                self.marginalized_root is not None
+                and self.marginalized_keep_indices == keep_indices
+            ):
+                return self.marginalized_root.log_inference(sample)
+            else:
+                raise ValueError(
+                    "Marginalized root not found or it marginalizes other variables"
+                )
         return self.root.log_inference(sample)
 
     def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
