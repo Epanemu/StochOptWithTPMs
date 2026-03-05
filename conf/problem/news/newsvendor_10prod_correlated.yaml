@@ -1,6 +1,6 @@
 # Newsvendor with 10 products - medium demand variability, distinct distributions
 _target_: stochopt.problem.newsvendor.NewsvendorProblem
-name: newsvendor10
+name: newsvendor10_correlated
 n_products: 10
 costs: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 prices: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
