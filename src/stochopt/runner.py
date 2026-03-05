@@ -91,7 +91,7 @@ def run_experiment(cfg: DictConfig) -> None:
     with mlflow.start_run():
         try:
             # Set meaningful run name and tags
-            run_name = f"{cfg.method.name}_n{cfg.problem.n_products}_opt{cfg.samples.opt}_train{cfg.samples.train}"
+            run_name = f"n{cfg.problem.n_products}_{'corr' if cfg.problem.correlated else 'uncorr'}_opt{cfg.samples.opt}_train{cfg.samples.train}"
             mlflow.set_tag("mlflow.runName", run_name)
             mlflow.set_tag("method", cfg.method.name)
             mlflow.set_tag(
