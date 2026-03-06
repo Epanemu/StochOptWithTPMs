@@ -139,6 +139,24 @@ class BaseProblem(ABC):
         """
         pass
 
+    def get_objective(self) -> float:
+        """
+        Extract the objective value from the solved model.
+
+        Returns:
+            float: Objective value.
+
+        Raises:
+            ValueError: If model is not solved or infeasible.
+        """
+        if self.model is None:
+            raise ValueError("Model has not been built yet.")
+
+        try:
+            return float(pyo.value(self.model.obj))
+        except Exception as e:
+            raise ValueError(f"Could not extract objective: {e}")
+
     # TODO: separate the n_decisions parameter from n_pairing parameter which would choose a subset of decision variables to pair with each training sample of xi
     def generate_tpm_data(
         self,
@@ -205,8 +223,8 @@ class BaseProblem(ABC):
 
         res = {
             "status": str(status),
-            "objective": None,
-            "solution": None,
+            "objective": self.get_objective(),
+            "solution": self.get_solution(),
         }
 
         return res
