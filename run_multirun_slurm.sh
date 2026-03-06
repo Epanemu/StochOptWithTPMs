@@ -73,7 +73,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=100 \
   samples.train=100 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated > run100.out 2>&1 &
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo > run100.out 2>&1 &
 
 # Run 2: opt=train=1000
 echo "→ Submitting experiments with 1000 samples to SLURM..."
@@ -84,7 +84,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated > run1000.out 2>&1 &
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo > run1000.out 2>&1 &
 
 # Run 3: opt=train=10000
 echo "→ Submitting experiments with 10000 samples to SLURM..."
@@ -95,7 +95,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=10000 \
   samples.train=10000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated > run10000.out 2>&1 &
+  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo > run10000.out 2>&1 &
 
 echo ""
 echo "=== All Jobs Submitted to SLURM! ==="
