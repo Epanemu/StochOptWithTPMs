@@ -48,7 +48,7 @@ class NewsvendorProblem(BaseProblem):
         stds: npt.NDArray[np.float64],
     ) -> npt.NDArray[np.float64]:
         common = norm.rvs(size=(n_samples, 1))
-        noise = norm.rvs(scale=0.1, size=(n_samples, stds.shape[0]))
+        noise = norm.rvs(scale=0.1, size=(n_samples, len(stds)))
         samples = np.maximum(means + stds * (common + noise), 0)
         return np.array(samples, dtype=np.float64)
 
