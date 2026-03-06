@@ -24,6 +24,8 @@ hydra:
   sweep:
     dir: multirun/newsvendor_benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}
     subdir: ${method.name}_n${problem.n_products}_s${samples.opt}
+  launcher:
+    name: SO-TPM_${hydra.job.override_dirname}
 
 # Fix train_decisions to 10000 across all runs
 samples:
