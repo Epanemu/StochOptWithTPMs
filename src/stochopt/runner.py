@@ -93,7 +93,10 @@ def run_experiment(cfg: DictConfig) -> None:
             # Set meaningful run name and tags
             run_name = f"n{cfg.problem.n_products}_{'corr' if cfg.problem.correlated else 'uncorr'}_opt{cfg.samples.opt}_train{cfg.samples.train}"
             mlflow.set_tag("mlflow.runName", run_name)
-            mlflow.set_tag("method", cfg.method.name)
+            if cfg.method.name == "tree":
+                mlflow.set_tag("method", f"tree_{cfg.method.learner}")
+            else:
+                mlflow.set_tag("method", cfg.method.name)
             mlflow.set_tag(
                 "n_products", str(cfg.problem.n_products)
             )  # String for categorical grouping
