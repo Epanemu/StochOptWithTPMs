@@ -45,6 +45,7 @@ def small_config():
                 "demand_dist": "normal",
                 "demand_params": {"mean": [100.0], "std": [20.0]},
                 "density_type": "uniform",
+                "correlated": False,
             },
             "method": {"name": "robust"},
         }
