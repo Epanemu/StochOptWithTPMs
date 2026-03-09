@@ -164,8 +164,8 @@ class SpnTPM(TPM):
 
         if len(sample) != self.data_handler.n_features:
             raise ValueError(
-                f"Input length mismatch: expected {self.data_handler.n_features} inputs "
-                f"(based on data_handler), got {len(sample)}"
+                f"Input length mismatch: expected {self.data_handler.n_features} inputs"
+                f" (based on data_handler), got {len(sample)}"
             )
 
         keep_idx = []
