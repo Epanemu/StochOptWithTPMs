@@ -150,12 +150,17 @@ def run_experiment(cfg: DictConfig) -> None:
                 tpm_start_time = time.time()
                 tpm = train_tpm(cfg, tpm_data, data_handler)
                 tpm_train_duration = time.time() - tpm_start_time
+                mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+
+                # evaluate prob of training set and log the mean logprob to mlflow
+                log.info("Evaluating TPM on training set...")
+                probs = [tpm.log_probability(row) for row in tpm_data]
+                mlflow.log_metric("tpm_train_mean_logprob", float(np.mean(probs)))
             else:
                 tpm = None
                 data_handler = None
                 tpm_data = None
                 tpm_train_duration = 0.0
-            mlflow.log_metric("tpm_train_duration", tpm_train_duration)
 
             # 4. Build and Solve Model
             log.info(f"Building model for method: {cfg.method.name}")
