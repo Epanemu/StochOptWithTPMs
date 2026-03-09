@@ -83,7 +83,7 @@ class TPM(ABC):
         pass
 
     @abstractmethod
-    def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def log_probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate the exact log-probability (or log-probability density) of a given sample.
 
@@ -99,7 +99,7 @@ class TPM(ABC):
         pass
 
     @abstractmethod
-    def probability_approx(
+    def log_probability_approx(
         self, sample: npt.NDArray[np.float64], **kwargs: Any
     ) -> float:
         """

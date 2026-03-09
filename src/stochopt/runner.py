@@ -258,9 +258,9 @@ def run_experiment(cfg: DictConfig) -> None:
                     + list(x_sol)
                     + [1]
                 )
-                p_x_sol = tpm.probability(x_sol)
+                p_x_sol = tpm.log_probability(x_sol)
                 mlflow.log_metric(
-                    "true_tpm_prob_satisfied", np.exp(p_x_sol - problem.x_log_density)
+                    "true_tpm_logprob_satisfied", p_x_sol - problem.x_log_density
                 )
                 log.info(
                     "P(x_sol) from true TPM: "
@@ -268,10 +268,10 @@ def run_experiment(cfg: DictConfig) -> None:
                 )
                 # TODO make this somehow neat? also above, passing cfg is not ideal
                 # TODO check also the division by p(x) if not uniform
-                p_x_sol_approx = tpm.probability_approx(x_sol, **cfg.method)
+                p_x_sol_approx = tpm.log_probability_approx(x_sol, **cfg.method)
                 mlflow.log_metric(
-                    "approx_tpm_prob_satisfied",
-                    np.exp(p_x_sol_approx - problem.x_log_density),
+                    "approx_tpm_logprob_satisfied",
+                    p_x_sol_approx - problem.x_log_density,
                 )
                 log.info(
                     "P(x_sol) from approx TPM: "

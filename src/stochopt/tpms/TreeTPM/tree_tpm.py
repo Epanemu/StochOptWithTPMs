@@ -122,13 +122,15 @@ class TreeTPM(TPM):
         self.marginalized_keep_indices = None
         return self
 
-    def log_probability(self, sample: npt.NDArray[np.float64]) -> float:
+    def log_probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate the log-probability of a given sample.
 
         Args:
             sample: npt.NDArray[np.float64]
                 The input sample.
+            **kwargs: Any
+                Additional arguments (ignored).
 
         Returns:
             float: Log-probability value.
@@ -148,21 +150,6 @@ class TreeTPM(TPM):
                     "Marginalized root not found or it marginalizes other variables"
                 )
         return self.root.log_inference(sample)
-
-    def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
-        """
-        Calculate the exact log-probability.
-
-        Args:
-            sample: npt.NDArray[np.float64]
-                The input sample.
-            **kwargs: Any
-                Additional arguments (ignored).
-
-        Returns:
-            float: Log-probability value.
-        """
-        return self.log_probability(sample)
 
     def marginalize(self, var_indices_to_keep: List[int]) -> "TreeTPM":
         """
@@ -508,7 +495,7 @@ class TreeTPM(TPM):
 
                 self._add_node_constraints(model_block, child, inputs)
 
-    def probability_approx(
+    def log_probability_approx(
         self, sample: npt.NDArray[np.float64], **kwargs: Any
     ) -> float:
         """
@@ -524,4 +511,4 @@ class TreeTPM(TPM):
         Returns:
             float: Log-probability value.
         """
-        return self.probability(sample, **kwargs)
+        return self.log_probability(sample, **kwargs)

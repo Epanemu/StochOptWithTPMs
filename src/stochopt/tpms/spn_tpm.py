@@ -122,7 +122,7 @@ class SpnTPM(TPM):
         )
         return out_vars[self.marginalized_model.out_node_id]
 
-    def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def log_probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate the exact log-probability.
         """
@@ -147,7 +147,7 @@ class SpnTPM(TPM):
 
         return float(self.marginalized_model.compute_ll(sample)[0])
 
-    def probability_approx(
+    def log_probability_approx(
         self, sample: npt.NDArray[np.float64], **kwargs: Any
     ) -> float:
         """

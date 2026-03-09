@@ -90,7 +90,7 @@ class CNetTPM(TPM):
         self.marginalized_model: Optional[DecisionNode | LeafNode] = None
         return self
 
-    def probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
+    def log_probability(self, sample: npt.NDArray[np.float64], **kwargs: Any) -> float:
         """
         Calculate the exact log-probability.
 
@@ -132,13 +132,13 @@ class CNetTPM(TPM):
             return float(self.marginalized_model.log_inference(d_sample.astype(int)))
         return float(self.model.log_inference(d_sample.astype(int)))
 
-    def probability_approx(
+    def log_probability_approx(
         self, sample: npt.NDArray[np.float64], **kwargs: Any
     ) -> float:
         """
         Calculate an approximate log-probability. For CNet, this is the same as the exact.
         """
-        return self.probability(sample)
+        return self.log_probability(sample, **kwargs)
 
     def _discretize_data(
         self,
