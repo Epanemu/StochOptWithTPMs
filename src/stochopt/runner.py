@@ -190,7 +190,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
             log.info("Solving model...")
             solve_start_time = time.time()
-            result = problem.solve()
+            result = problem.solve(time_limit=cfg.time_limit)
             solve_duration = time.time() - solve_start_time
 
             log.info(f"Result: {result}")

@@ -1,9 +1,12 @@
+import logging
 from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
+
+logger = logging.getLogger(__name__)
 
 
 class BaseProblem(ABC):
@@ -206,9 +209,12 @@ class BaseProblem(ABC):
 
         return data, feat_names
 
-    def solve(self) -> Dict[str, Any]:
+    def solve(self, time_limit: Optional[float] = None) -> Dict[str, Any]:
         """
         Solve the built model.
+
+        Args:
+            time_limit: Time limit for the solver.
 
         Returns:
             Dict[str, Any]: Dictionary containing solution status, objective value, and variable values.
@@ -217,6 +223,28 @@ class BaseProblem(ABC):
             raise ValueError("Model has not been built yet. Call build_model() first.")
 
         solver = pyo.SolverFactory(self.solver_name)
+        if time_limit is not None:
+            if "cplex" in self.solver_name:
+                solver.options["timelimit"] = time_limit
+            elif "glpk" in self.solver_name:
+                solver.options["tmlim"] = time_limit
+            elif "xpress" in self.solver_name:
+                solver.options["soltimelimit"] = time_limit
+                # Use the below instead for XPRESS versions before 9.0
+                # solver.options['maxtime'] = time_limit
+            elif "highs" in self.solver_name:
+                solver.options["time_limit"] = time_limit
+            elif "gurobi" in self.solver_name:
+                solver.options["TimeLimit"] = time_limit
+                # solver.options["Aggregate"] = 0
+                # solver.options["OptimalityTol"] = 1e-3
+                # solver.options["IntFeasTol"] = self.MIO_EPS / 10
+                # solver.options["FeasibilityTol"] = self.MIO_EPS / 10
+            else:
+                logger.warning(
+                    f"Time limit not set! Not implemented for solver {self.solver_name}"
+                )
+
         result = solver.solve(self.model, tee=False)
 
         status = result.solver.termination_condition

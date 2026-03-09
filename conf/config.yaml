@@ -6,6 +6,7 @@ defaults:
 seed: 42
 risk_level: 0.05
 solver: gurobi
+time_limit: 36000 # 10 hours in seconds
 
 samples:
   opt: 100

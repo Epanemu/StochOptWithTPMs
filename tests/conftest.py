@@ -48,6 +48,7 @@ def small_config():
                 "correlated": False,
             },
             "method": {"name": "robust"},
+            "time_limit": 60,  # 1 minute
         }
     )
     return config
