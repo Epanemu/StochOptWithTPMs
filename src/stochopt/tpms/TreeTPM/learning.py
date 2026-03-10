@@ -458,9 +458,27 @@ class GreedyTopDownLearner:
 
         total_cells = int(np.prod(shape))
         if total_cells > 1_000_000:
-            raise ValueError(
-                f"Number of cells in joint histogram of shape {shape} is too large: {total_cells}. Try reducing n_bins_per_var."
+            logger.info(
+                f"Number of cells in joint histogram of shape {shape} is too large: {total_cells}. Going with a single bin."
             )
+            shape = [1] * n_vars
+            edges_dict = {}
+            bins_dict = {}
+            for i in range(n_vars):
+                v = data[:, i]
+                b_info = current_bounds[i]
+
+                if self.feature_types[i] == "continuous":
+                    c_min, c_max = b_info
+                    edges_dict[i] = np.array([c_min - 1e-7, c_max + 1e-7])
+                else:
+                    bins_dict[i] = [set(b_info)]
+            log_probs = np.log(np.ones(shape))
+
+            jh = JointHistogram(
+                scope, edges_dict, bins_dict, log_probs, self.feature_types
+            )
+            return LeafNode(scope, jh)
 
         # Compute joint counts
         counts = np.zeros(shape, dtype=np.int64)
