@@ -6,7 +6,7 @@ import pyomo.environ as pyo
 from scipy.stats import expon, norm
 
 from stochopt.problem.base import BaseProblem
-from stochopt.tpms.feature import Binary, Categorical
+from stochopt.data.Features import Binary, Categorical
 from stochopt.tpms.tpm import TPM
 
 
