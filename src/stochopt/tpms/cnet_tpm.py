@@ -250,7 +250,7 @@ class CNetTPM(TPM):
             raise ValueError("CNet model not trained.")
 
         if any(x is None for x in inputs):
-            marginalized_data = self._discretized_data
+            marginalized_data = self._discretized_data.copy()
             kept_indices = np.where(~np.array([x is None for x in inputs]))[0]
             marginalized_data = marginalized_data[:, kept_indices]
             kept_feature_names = [
