@@ -6,6 +6,7 @@ import pyomo.environ as pyo
 from scipy.stats import expon, norm
 
 from stochopt.problem.base import BaseProblem
+from stochopt.tpms.feature import Binary, Categorical
 from stochopt.tpms.tpm import TPM
 
 
@@ -257,8 +258,6 @@ class NewsvendorProblem(BaseProblem):
         # Simplified: Minimize sum(Cost * x)
         # TODO: Add expected sales term if prices are non-zero
 
-        # TODO add costs/prices to config
-
         # Objective: Minimize sum(costs * x)
         model.obj = pyo.Objective(
             expr=sum(self.costs[i] * model.x[i] for i in range(self.n_products)),
@@ -317,7 +316,12 @@ class NewsvendorProblem(BaseProblem):
             # sat column is 1 - meaning that the internal constraint is satisfied
 
             # TODO We can get the order of features from the DataHandler - some might be categorical or sth
-            # TODO if the input is discrete, this will be different - raise an error for now
+            if any(
+                isinstance(f, Categorical) or isinstance(f, Binary)
+                for f in data_handler.features
+            ):
+                raise ValueError("Categorical or binary features not supported yet")
+
             inputs = (
                 [None] * self.n_products
                 + [model.x[i] for i in range(self.n_products)]
