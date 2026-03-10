@@ -29,7 +29,7 @@ def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM
     tpm_cfg = cfg.method
     tpm_name = tpm_cfg.name
 
-    encoded_data = data_handler.encode(data)
+    encoded_data = data_handler.encode(data, normalize=False, one_hot=False)
 
     if tpm_name == "spn":
         log.info("Training SPN...")
