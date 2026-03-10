@@ -131,8 +131,8 @@ class SpnTPM(TPM):
 
         if len(sample) != self.data_handler.n_features:
             raise ValueError(
-                f"Input length mismatch: expected {self.data_handler.n_features} inputs "
-                f"(based on data_handler), got {len(sample)}"
+                f"Input length mismatch: expected {self.data_handler.n_features} inputs"
+                f" (based on data_handler), got {len(sample)}"
             )
 
         keep_idx = []
@@ -180,9 +180,9 @@ class SpnTPM(TPM):
 
         if kwargs.get("sum_approx", "piecewise") == "piecewise":
             return float(self.marginalized_model.compute_maxpw_approx(sample))
-        elif kwargs.get("sum_approx", "piecewise") == "lower":
+        elif kwargs["sum_approx"] == "lower":
             return float(self.marginalized_model.compute_max_approx(sample))
         else:
             raise ValueError(
-                f"Approximation method '{kwargs.get('sum_approx', 'piecewise')}' not implemented."
+                f"Approximation method '{kwargs['sum_approx']}' not implemented."
             )
