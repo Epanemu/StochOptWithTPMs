@@ -318,7 +318,7 @@ class NewsvendorProblem(BaseProblem):
             # TODO We can get the order of features from the DataHandler - some might be categorical or sth
             if any(
                 isinstance(f, Categorical) or isinstance(f, Binary)
-                for f in data_handler.features[self.n_products:-1]
+                for f in data_handler.features[self.n_products : -1]
             ):
                 raise ValueError("Categorical or binary features not supported yet")
 
