@@ -5,8 +5,8 @@ import numpy.typing as npt
 import pyomo.environ as pyo
 from scipy.stats import expon, norm
 
-from stochopt.problem.base import BaseProblem
 from stochopt.data.Features import Binary, Categorical
+from stochopt.problem.base import BaseProblem
 from stochopt.tpms.tpm import TPM
 
 
