@@ -61,10 +61,12 @@ class CNetTPM(TPM):
         # Discretize continuous features
         discretized_data = self._discretize_data(data, discretization_method, n_bins)
 
-        categ_map: dict[int | str, list[int | str]] = {
-            f.name: f.orig_vals if isinstance(f, (Categorical, Binary)) else []
-            for f in self.data_handler.features
-        }
+        categ_map: dict[int | str, list[int | str]] = {}
+        for i, f in enumerate(self.data_handler.features):
+            if isinstance(f, (Categorical, Binary)):
+                categ_map[f.name] = f.orig_vals
+            else:
+                categ_map[f.name] = list(range(self.discretization_info[i]["n_bins"]))
         self.discrete_data_handler = DataHandler(
             discretized_data,
             categ_map=categ_map,
