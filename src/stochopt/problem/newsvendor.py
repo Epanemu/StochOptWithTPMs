@@ -103,9 +103,9 @@ class NewsvendorProblem(BaseProblem):
                 d = expon.rvs(scale=mean, size=n_samples)
             else:
                 raise ValueError(f"Unknown distribution: {self.demand_dist}")
-            samples.append(d.reshape(n_samples, 1))
+            samples.append(d.reshape(n_samples, 1).round())
 
-        return np.concatenate(samples, axis=1)
+        return np.concatenate(samples, axis=1, dtype=np.float64)
 
     def generate_decision_samples(
         self,
@@ -175,10 +175,10 @@ class NewsvendorProblem(BaseProblem):
             self.x_log_density = 0
             for i in range(self.n_products):
                 x = np.random.uniform(min_demand[i], max_demand[i], size=n_samples)
-                x_samples.append(x.reshape(-1, 1))
+                x_samples.append(x.reshape(-1, 1).round())
                 self.x_log_density -= np.log(max_demand[i] - min_demand[i])
 
-            return np.concatenate(x_samples, axis=1)
+            return np.concatenate(x_samples, axis=1, dtype=np.float64)
         else:
             raise ValueError(f"Unknown distribution type: {self.demand_dist}")
 
@@ -250,7 +250,7 @@ class NewsvendorProblem(BaseProblem):
         **kwargs,
     ) -> pyo.ConcreteModel:
         model = pyo.ConcreteModel()
-        model.x = pyo.Var(range(self.n_products), domain=pyo.NonNegativeReals)
+        model.x = pyo.Var(range(self.n_products), domain=pyo.Integers, bounds=(0, None))
         demands = scenarios
 
         # Objective: Minimize Cost * x - Price * E[min(x, D)]
@@ -351,3 +351,22 @@ class NewsvendorProblem(BaseProblem):
 
         self.model = model
         return model
+
+    def get_categ_map(self) -> dict[str, list[int | str]]:
+        """
+        Get mapping of categorical features for all samples.
+
+        Returns:
+            dict[str, list[int | str]]: Mapping of categorical features.
+        """
+        return {"sat": [0, 1]}
+
+    def get_discrete(self) -> list[str]:
+        """
+        Get a list of discrete continuous features for all samples.
+
+        Returns:
+            list[str]: List of discrete features.
+        """
+        xi, x, sat = self.get_feature_names()
+        return xi + x  # sat feature is categorical

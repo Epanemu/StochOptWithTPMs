@@ -139,10 +139,15 @@ def run_experiment(cfg: DictConfig) -> None:
                     seed=cfg.seed,
                 )
 
-                categ_map: dict[int | str, list[int | str]] = {"sat": [0, 1]}
+                categ_map = problem.get_categ_map()
+                discrete_features = problem.get_discrete()
 
                 data_handler = DataHandler(
-                    tpm_data, y=None, categ_map=categ_map, feature_names=feat_names
+                    tpm_data,
+                    y=None,
+                    feature_names=feat_names,
+                    discrete=discrete_features,
+                    categ_map=categ_map,
                 )
 
                 # Train TPM

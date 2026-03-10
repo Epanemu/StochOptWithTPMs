@@ -256,3 +256,23 @@ class BaseProblem(ABC):
         }
 
         return res
+
+    @abstractmethod
+    def get_categ_map(self) -> dict[str, list[int | str]]:
+        """
+        Get mapping of categorical features for all samples.
+
+        Returns:
+            dict[str, list[int | str]]: Mapping of categorical features.
+        """
+        pass
+
+    @abstractmethod
+    def get_discrete(self) -> list[str]:
+        """
+        Get a list of discrete continuous features for all samples.
+
+        Returns:
+            list[str]: List of discrete features.
+        """
+        pass
