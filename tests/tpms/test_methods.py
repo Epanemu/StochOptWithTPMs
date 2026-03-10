@@ -2,7 +2,6 @@
 Integration tests for different optimization methods.
 """
 
-from typing import Dict, List
 
 import numpy as np
 from hydra.utils import instantiate
@@ -111,9 +110,10 @@ class TestTPMOptimization:
         )
 
         # Setup DataHandler
-        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
+        categ_map = problem.get_categ_map()
+        discrete = problem.get_discrete()
         data_handler = DataHandler(
-            tpm_data, feature_names=feat_names, categ_map=categ_map
+            tpm_data, feature_names=feat_names, categ_map=categ_map, discrete=discrete
         )
 
         # Train TPM
@@ -149,9 +149,10 @@ class TestTPMOptimization:
         )
 
         # Setup DataHandler
-        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
+        categ_map = problem.get_categ_map()
+        discrete = problem.get_discrete()
         data_handler = DataHandler(
-            tpm_data, feature_names=feat_names, categ_map=categ_map
+            tpm_data, feature_names=feat_names, categ_map=categ_map, discrete=discrete
         )
 
         # Train TPM
@@ -191,9 +192,10 @@ class TestTPMOptimization:
         tpm_data, feat_names = problem.generate_tpm_data(
             n_decisions=80, train_samples=train_samples, seed=42
         )
-        categ_map: Dict[int | str, List[int | str]] = {"sat": [0, 1]}
+        categ_map = problem.get_categ_map()
+        discrete = problem.get_discrete()
         data_handler = DataHandler(
-            tpm_data, feature_names=feat_names, categ_map=categ_map
+            tpm_data, feature_names=feat_names, categ_map=categ_map, discrete=discrete
         )
 
         tpm = SpnTPM(data_handler=data_handler)
