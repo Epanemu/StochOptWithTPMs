@@ -272,6 +272,9 @@ def run_experiment(cfg: DictConfig) -> None:
                 mlflow.log_metric(
                     "true_tpm_logprob_satisfied", p_x_sol - problem.x_log_density
                 )
+                mlflow.log_metric(
+                    "true_tpm_prob_satisfied", np.exp(p_x_sol - problem.x_log_density)
+                )
                 log.info(
                     "P(x_sol) from true TPM: "
                     + f"{np.exp(p_x_sol - problem.x_log_density)}"
@@ -282,6 +285,10 @@ def run_experiment(cfg: DictConfig) -> None:
                 mlflow.log_metric(
                     "approx_tpm_logprob_satisfied",
                     p_x_sol_approx - problem.x_log_density,
+                )
+                mlflow.log_metric(
+                    "approx_tpm_prob_satisfied",
+                    np.exp(p_x_sol_approx - problem.x_log_density),
                 )
                 log.info(
                     "P(x_sol) from approx TPM: "
