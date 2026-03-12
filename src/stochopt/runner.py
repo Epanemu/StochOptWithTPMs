@@ -2,6 +2,7 @@ import logging
 import os
 import time
 
+import matplotlib.pyplot as plt
 import mlflow
 import numpy as np
 from hydra.utils import instantiate
@@ -79,6 +80,85 @@ def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM
 
     else:
         raise ValueError(f"Unknown TPM name: {tpm_name}")
+
+
+def _plot_tpm_pairplot(
+    tpm_data: np.ndarray,
+    feat_names: list[str],
+    title: str = "TPM training data pairplot (sat=1)",
+    n_bins: int = 30,
+) -> None:
+    """
+    Log a pairplot of TPM training data (sat=1 rows only) to MLflow.
+
+    Off-diagonal cells show 2-D heatmaps; diagonal cells show 1-D histograms
+    with the feature name annotated inside. The "sat" feature is excluded.
+    Figure size and DPI scale so the plot stays readable up to ~10 features.
+    """
+    sat_idx = feat_names.index("sat")
+    sat_mask = tpm_data[:, sat_idx] == 1
+    data = tpm_data[sat_mask]
+    plot_names = [nm for nm in feat_names if nm != "sat"]
+    plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+    data = data[:, plot_cols]
+    n = len(plot_names)
+
+    # Cell size: cap at 3 in for small n, floor at 1.8 in for large n.
+    cell_size = max(1.8, min(3.0, 18.0 / n))
+    # Higher DPI for many features so everything stays sharp.
+    dpi = max(120, 80 + n * 17)
+    # Scale font with physical cell size so labels are readable at any n.
+    # cell_size * 72 / 5 ≈ 'one fifth of a cell height' in pt.
+    label_fs = max(10, int(cell_size * 72 / 5))
+    tick_fs = max(6, int(label_fs * 0.55))
+
+    fig, axes = plt.subplots(
+        n,
+        n,
+        figsize=(cell_size * n, cell_size * n),
+        squeeze=False,
+    )
+
+    for i in range(n):
+        xi = data[:, i]
+        bins_i = np.linspace(xi.min(), xi.max(), n_bins + 1)
+        for j in range(n):
+            ax = axes[i, j]
+            xj = data[:, j]
+            bins_j = np.linspace(xj.min(), xj.max(), n_bins + 1)
+            if i == j:
+                ax.hist(xi, bins=bins_i, color="steelblue", edgecolor="none")
+            else:
+                h, xedges, yedges = np.histogram2d(xj, xi, bins=[bins_j, bins_i])
+                ax.imshow(
+                    h.T,
+                    origin="lower",
+                    aspect="auto",
+                    extent=[xedges[0], xedges[-1], yedges[0], yedges[-1]],
+                    cmap="viridis",
+                )
+            # Outer-edge axis labels; hide tick labels on inner cells.
+            if j == 0:
+                ax.set_ylabel(
+                    plot_names[i],
+                    fontsize=label_fs,
+                    rotation=0,
+                    ha="right",
+                    va="center",
+                    labelpad=4,
+                )
+            else:
+                ax.set_yticklabels([])
+            if i == n - 1:
+                ax.set_xlabel(plot_names[j], fontsize=label_fs)
+            else:
+                ax.set_xticklabels([])
+            ax.tick_params(labelsize=tick_fs)
+
+    fig.suptitle(title, fontsize=label_fs + 6, y=1.01)
+    fig.tight_layout()
+    mlflow.log_figure(fig, "tpm_pairplot.png", save_kwargs={"dpi": dpi})
+    plt.close(fig)
 
 
 def run_experiment(cfg: DictConfig) -> None:
@@ -161,6 +241,20 @@ def run_experiment(cfg: DictConfig) -> None:
                 log.info("Evaluating TPM on training set...")
                 probs = [tpm.log_probability(row) for row in tpm_data]
                 mlflow.log_metric("tpm_train_mean_logprob", float(np.mean(probs)))
+
+                # visualize the fit
+                _tpm_method = cfg.method.name
+                if _tpm_method == "tree":
+                    _tpm_method = f"tree/{cfg.method.learner}"
+                _problem_name = cfg.problem.get("name", "unknown")
+                _n_products = cfg.problem.get("n_products", "?")
+                _pairplot_title = (
+                    f"TPM: {_tpm_method} | "
+                    f"{_problem_name}, {_n_products}d | "
+                    f"n_train={cfg.samples.train} (sat=1)"
+                )
+                _plot_tpm_pairplot(tpm_data, feat_names, title=_pairplot_title)
+
             else:
                 tpm = None
                 data_handler = None
