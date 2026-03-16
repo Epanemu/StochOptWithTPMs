@@ -1,0 +1,12 @@
+# Newsvendor with 5 products - low demand variability, distinct distributions
+_target_: stochopt.problem.newsvendor.NewsvendorProblem
+name: newsvendor4_norm
+n_products: 4
+costs: [1.0, 1.0, 1.0, 1.0]
+prices: [2.0, 2.0, 2.0, 2.0]
+demand_dist: "normal"
+demand_params:
+  mean: [40.0, 55.0, 60.0, 45.0]
+  std: [8.0, 10.0, 12.0, 9.0]
+x_density: "uniform"
+correlated: false

@@ -9,10 +9,10 @@
 # - Products: 1, 5, 10, 50, 100
 # - Different distribution parameters
 #
-# Total experiments: 6 methods × 3 sample sizes × 6 problem variants = 108 runs
+# Total experiments: 6 methods × 3 sample sizes × 12 problem variants = 216 runs
 
 echo "Starting multirun experiments..."
-echo "This will run 108 experiments (6 methods × 3 sample sizes × 6 problem variants)"
+echo "This will run 216 experiments (6 methods × 3 sample sizes × 12 problem variants)"
 echo ""
 
 # Using Hydra's multirun with glob syntax
@@ -27,7 +27,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=100 \
   samples.train=100 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
 
 # Run 2: opt=train=1000
 echo "Running experiments with 1000 samples..."
@@ -38,7 +38,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
 
 # Run 3: opt=train=10000
 echo "Running experiments with 10000 samples..."
@@ -49,7 +49,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=10000 \
   samples.train=10000 \
-  problem=news/newsvendor,news/newsvendor_5prod_low,news/newsvendor_10prod_med,news/newsvendor_10prod_correlated,news/newsvendor_10prod_expo,news/newsvendor_50prod_high,news/newsvendor_100prod_veryhigh
+  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
 
 echo ""
 echo "All experiments completed!"
