@@ -230,7 +230,8 @@ class BaseProblem(ABC):
             time_limit: Time limit for the solver.
 
         Returns:
-            Dict[str, Any]: Dictionary containing solution status, objective value, and variable values.
+            Dict[str, Any]: Dictionary containing solution status, objective
+                value, variable values, and MIP gap.
         """
         if self.model is None:
             raise ValueError("Model has not been built yet. Call build_model() first.")
@@ -260,12 +261,25 @@ class BaseProblem(ABC):
 
         result = solver.solve(self.model, tee=False)
 
-        status = result.solver.termination_condition
+        status = str(result.solver.termination_condition)
+
+        # Safely extract objective and solution
+        obj_val = None
+        try:
+            obj_val = self.get_objective()
+        except (ValueError, AttributeError):
+            pass
+
+        sol_val = None
+        try:
+            sol_val = self.get_solution()
+        except (ValueError, AttributeError):
+            pass
 
         res = {
-            "status": str(status),
-            "objective": self.get_objective(),
-            "solution": self.get_solution(),
+            "status": status,
+            "objective": obj_val,
+            "solution": sol_val,
         }
 
         return res
