@@ -190,9 +190,16 @@ def run_experiment(cfg: DictConfig) -> None:
             mlflow.set_tag("problem_type", cfg.problem.get("name", "unknown"))
             mlflow.set_tag("status", "RUNNING")
 
-            slurm_id = os.environ.get("SLURM_JOB_ID")
-            if slurm_id:
-                mlflow.set_tag("slurm_job_id", slurm_id)
+            slurm_job_id = os.environ.get("SLURM_JOB_ID")
+            mlflow.set_tag("slurm_job_id", slurm_job_id)
+
+            slurm_array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
+            if slurm_array_task_id is not None:
+                slurm_id = f"{slurm_job_id}_{slurm_array_task_id}"
+                mlflow.set_tag("slurm_array_task_id", slurm_array_task_id)
+            else:
+                slurm_id = str(slurm_job_id)
+            mlflow.set_tag("slurm_id", slurm_id)  # combined, for quick lookup
 
             # Add date tag for grouping batches of experiments
             import datetime
