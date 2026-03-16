@@ -220,6 +220,7 @@ def run_experiment(cfg: DictConfig) -> None:
                 tpm_data, feat_names = problem.generate_tpm_data(
                     n_decisions=cfg.samples.train_decisions,
                     train_samples=train_samples,
+                    cartesian_product=cfg.samples.get("cartesian_product", False),
                     seed=cfg.seed,
                 )
 

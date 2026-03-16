@@ -160,11 +160,11 @@ class BaseProblem(ABC):
         except Exception as e:
             raise ValueError(f"Could not extract objective: {e}")
 
-    # TODO: separate the n_decisions parameter from n_pairing parameter which would choose a subset of decision variables to pair with each training sample of xi
     def generate_tpm_data(
         self,
         n_decisions: int,
         train_samples: npt.NDArray[np.float64],
+        cartesian_product: bool = False,
         seed: Optional[int] = None,
     ) -> Tuple[npt.NDArray[np.float64], list[str]]:
         """
@@ -173,6 +173,10 @@ class BaseProblem(ABC):
         Args:
             n_decisions: Number of decision samples.
             train_samples: Context samples (xi).
+            cartesian_product: If True, generate Cartesian product of
+                train_samples and generated x_samples. If False,
+                generate n_decisions (xi, x) pairs by sampling
+                from train_samples.
             seed: Random seed.
 
         Returns:
@@ -183,25 +187,34 @@ class BaseProblem(ABC):
 
         n_samples = train_samples.shape[0]
 
-        # Generate x samples (size n_decisions)
-        # We pass train_samples to help determine bounds if needed
-        x_samples = self.generate_decision_samples(
-            n_decisions, seed=seed, xi=train_samples
-        )
+        if cartesian_product:
+            # Generate x samples (size n_decisions)
+            # We pass train_samples to help determine bounds if needed
+            x_samples = self.generate_decision_samples(
+                n_decisions, seed=seed, xi=train_samples
+            )
 
-        # Pair each xi with each x (Cartesian product)
-        # Repeat xi: [xi1, xi1, ..., xi2, xi2, ...]
-        train_samples_expanded = np.repeat(train_samples, n_decisions, axis=0)
-        # Tile x: [x1, x2, ..., x1, x2, ...]
-        x_samples_expanded = np.tile(x_samples, (n_samples, 1))
+            # Pair each xi with each x (Cartesian product)
+            # Repeat xi: [xi1, xi1, ..., xi2, xi2, ...]
+            xi_expanded = np.repeat(train_samples, n_decisions, axis=0)
+            # Tile x: [x1, x2, ..., x1, x2, ...]
+            x_expanded = np.tile(x_samples, (n_samples, 1))
+        else:
+            # Sample n_decisions indices from train_samples with replacement
+            indices = np.random.choice(n_samples, size=n_decisions, replace=True)
+            xi_expanded = train_samples[indices]
+
+            # Generate n_decisions x samples
+            # We pass all train_samples to help determine bounds if needed
+            x_expanded = self.generate_decision_samples(
+                n_decisions, seed=seed, xi=train_samples
+            )
 
         # Compute satisfaction on expanded data
-        sat = self.compute_satisfaction(
-            train_samples_expanded, x_samples_expanded
-        ).astype(float)
+        sat = self.compute_satisfaction(xi_expanded, x_expanded).astype(float)
 
         # Combine: [xi, x, sat]
-        data = np.concatenate([train_samples_expanded, x_samples_expanded, sat], axis=1)
+        data = np.concatenate([xi_expanded, x_expanded, sat], axis=1)
 
         # Get feature names from subclass
         xi_names, x_names, sat_name = self.get_feature_names()
