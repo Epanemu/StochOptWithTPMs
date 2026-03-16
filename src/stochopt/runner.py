@@ -171,7 +171,11 @@ def run_experiment(cfg: DictConfig) -> None:
     with mlflow.start_run():
         try:
             # Set meaningful run name and tags
-            run_name = f"n{cfg.problem.n_products}_{'corr' if cfg.problem.correlated else 'uncorr'}_opt{cfg.samples.opt}_train{cfg.samples.train}"
+            run_name = (
+                f"n{cfg.problem.n_products}_"
+                f"{'corr' if cfg.problem.correlated else 'uncorr'}_"
+                f"opt{cfg.samples.opt}_train{cfg.samples.train}"
+            )
             mlflow.set_tag("mlflow.runName", run_name)
             if cfg.method.name == "tree":
                 mlflow.set_tag("method", f"tree_{cfg.method.learner}")
@@ -356,12 +360,10 @@ def run_experiment(cfg: DictConfig) -> None:
             # If TPM exists, log the probability of the solution
             if tpm is not None:
                 log.info("Calculating P(x_sol) from TPM...")
-                # pad x_sol with None for marginalized variables and 1 for the satisfied constraint
-                x_sol = np.array(
-                    [None] * (tpm.data_handler.n_features - len(x_sol) - 1)
-                    + list(x_sol)
-                    + [1]
-                )
+                # pad x_sol with None for marginalized variables
+                # and 1 for the satisfied constraint
+                n_marg = tpm.data_handler.n_features - len(x_sol) - 1
+                x_sol = np.array([None] * n_marg + list(x_sol) + [1])
                 p_x_sol = tpm.log_probability(x_sol)
                 mlflow.log_metric(
                     "true_tpm_logprob_satisfied", p_x_sol - problem.x_log_density
