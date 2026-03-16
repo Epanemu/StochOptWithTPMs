@@ -6,7 +6,7 @@
 # This script runs experiments with:
 # - Methods: tpm_spn (SPN), tpm_cnet (CNets), tpm_tree_cnet (Tree trained as CNets), tpm_tree_greedy (Tree trained greedily), and 2 baseline methods: robust, sample_average (SAA)
 # - Sample sizes: 100, 1000, 10000 (opt and train equal)
-# - Products: 1, 5, 10, 50, 100
+# - Products: 1, 2, 4, 5, 10, 50, 100
 # - Different distribution parameters
 #
 # Total experiments: 6 methods × 3 sample sizes × 12 problem variants = 216 runs

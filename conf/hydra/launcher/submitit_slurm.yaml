@@ -10,7 +10,7 @@ gpus_per_node: 0
 tasks_per_node: 1
 mem_gb: 64
 nodes: 1
-name: ${hydra.job.name}
+name: SO-TPM_${hydra.job.override_dirname}
 # SLURM partition (adjust based on your cluster)
 partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", etc.
 
