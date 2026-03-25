@@ -1,6 +1,8 @@
+import itertools
 import logging
 import os
 import time
+from typing import Any, List, Tuple, cast
 
 import matplotlib.pyplot as plt
 import mlflow
@@ -9,6 +11,7 @@ from hydra.utils import instantiate
 from omegaconf import DictConfig
 
 from stochopt.data.DataHandler import DataHandler
+from stochopt.data.Features import Binary, Categorical, Contiguous
 from stochopt.data.Types import DataLike
 
 # Import TPM trainers
@@ -82,18 +85,18 @@ def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM
         raise ValueError(f"Unknown TPM name: {tpm_name}")
 
 
-def _plot_tpm_pairplot(
+def _plot_empirical_pairplot(
     tpm_data: np.ndarray,
     feat_names: list[str],
-    title: str = "TPM training data pairplot (sat=1)",
+    data_handler: DataHandler,
+    title: str = "Empirical distribution pairplot (sat=1)",
     n_bins: int = 30,
 ) -> None:
     """
-    Log a pairplot of TPM training data (sat=1 rows only) to MLflow.
+    Log a pairplot of empirical frequencies for TPM training data (sat=1 rows only)
+    to MLflow.
 
-    Off-diagonal cells show 2-D heatmaps; diagonal cells show 1-D histograms
-    with the feature name annotated inside. The "sat" feature is excluded.
-    Figure size and DPI scale so the plot stays readable up to ~10 features.
+    Off-diagonal cells show 2-D heatmaps of counts; diagonal cells show 1-D histograms.
     """
     sat_idx = feat_names.index("sat")
     sat_mask = tpm_data[:, sat_idx] == 1
@@ -102,15 +105,8 @@ def _plot_tpm_pairplot(
     plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
     data = data[:, plot_cols]
     n = len(plot_names)
-
-    # Cell size: cap at 3 in for small n, floor at 1.8 in for large n.
-    cell_size = max(1.8, min(3.0, 18.0 / n))
-    # Higher DPI for many features so everything stays sharp.
-    dpi = max(120, 80 + n * 17)
-    # Scale font with physical cell size so labels are readable at any n.
-    # cell_size * 72 / 5 ≈ 'one fifth of a cell height' in pt.
-    label_fs = max(10, int(cell_size * 72 / 5))
-    tick_fs = max(6, int(label_fs * 0.55))
+    cell_size = 4.0
+    dpi = 100
 
     fig, axes = plt.subplots(
         n,
@@ -121,15 +117,25 @@ def _plot_tpm_pairplot(
 
     for i in range(n):
         xi = data[:, i]
-        bins_i = np.linspace(xi.min(), xi.max(), n_bins + 1)
+        feat_i = data_handler.features[i]
+        if isinstance(feat_i, Contiguous) and feat_i.discrete:
+            bins_i = np.arange(feat_i.bounds[0], feat_i.bounds[1] + 1) - 0.5
+        else:
+            bins_i = np.linspace(xi.min(), xi.max(), n_bins + 1)
         for j in range(n):
             ax = axes[i, j]
             xj = data[:, j]
-            bins_j = np.linspace(xj.min(), xj.max(), n_bins + 1)
+            feat_j = data_handler.features[j]
+            if isinstance(feat_j, Contiguous) and feat_j.discrete:
+                bins_j = np.arange(feat_j.bounds[0], feat_j.bounds[1] + 1) - 0.5
+            else:
+                bins_j = np.linspace(xj.min(), xj.max(), n_bins + 1)
             if i == j:
                 ax.hist(xi, bins=bins_i, color="steelblue", edgecolor="none")
             else:
-                h, xedges, yedges = np.histogram2d(xj, xi, bins=[bins_j, bins_i])
+                h, xedges, yedges = np.histogram2d(
+                    xj, xi, bins=cast(Any, [bins_j, bins_i])
+                )
                 ax.imshow(
                     h.T,
                     origin="lower",
@@ -141,24 +147,463 @@ def _plot_tpm_pairplot(
             if j == 0:
                 ax.set_ylabel(
                     plot_names[i],
-                    fontsize=label_fs,
+                    fontsize=14,
                     rotation=0,
                     ha="right",
                     va="center",
-                    labelpad=4,
+                    labelpad=10,
                 )
             else:
                 ax.set_yticklabels([])
             if i == n - 1:
-                ax.set_xlabel(plot_names[j], fontsize=label_fs)
+                ax.set_xlabel(plot_names[j], fontsize=14)
             else:
                 ax.set_xticklabels([])
-            ax.tick_params(labelsize=tick_fs)
+            ax.tick_params(labelsize=10)
 
-    fig.suptitle(title, fontsize=label_fs + 6, y=1.01)
+    fig.suptitle(title, fontsize=18)
     fig.tight_layout()
-    mlflow.log_figure(fig, "tpm_pairplot.png", save_kwargs={"dpi": dpi})
+    mlflow.log_figure(fig, "tpm_empirical_pairplot.png", save_kwargs={"dpi": dpi})
     plt.close(fig)
+
+
+def _get_tpm_grid_distribution(
+    data_handler: DataHandler,
+    tpm: TPM,
+    active_cols: List[int],
+    sat_val: float = 1.0,
+    n_bins: int = 30,
+) -> Tuple[np.ndarray, List[np.ndarray], List[np.ndarray]]:
+    """
+    Generate a full joint grid for the active columns, evaluate the TPM
+    (with sat=sat_val), and return the grid points, their volumes (for density),
+    and the probabilities.
+    """
+    feat_names = data_handler.feature_names
+    sat_idx = feat_names.index("sat")
+
+    feature_vals = []
+    feature_bins = []
+    for col in active_cols:
+        feat = data_handler.features[col]
+        if isinstance(feat, Contiguous):
+            if feat.discrete:
+                vals = np.arange(feat.bounds[0], feat.bounds[1] + 1).astype(float)
+                bins = vals - 0.5
+                bins = np.append(bins, bins[-1] + 1)
+            else:
+                edges = np.linspace(feat.bounds[0], feat.bounds[1], n_bins + 1)
+                vals = (edges[:-1] + edges[1:]) / 2
+                bins = edges
+        elif isinstance(feat, (Categorical, Binary)):
+            vals = np.arange(len(feat.orig_vals)).astype(float)
+            bins = np.append(vals - 0.5, vals[-1] + 0.5)
+        else:
+            raise ValueError(f"Unknown feature type: {type(feat)}")
+        feature_vals.append(vals)
+        feature_bins.append(bins)
+
+    # Calculate grid size
+    grid_shape = [len(v) for v in feature_vals]
+    total_points = np.prod(grid_shape)
+    grid_size_str = f"joint grid of size {total_points} (active vars: {active_cols})"
+    log.info(f"Evaluating TPM on {grid_size_str}")
+
+    # Generate full grid
+    # Using np.indices and broadcasting might be faster for large grids?
+    # But itertools is easier to read.
+    grid_points = np.array(list(itertools.product(*feature_vals)))
+
+    # Evaluate TPM
+    # We must pad with None for marginalized vars and set sat=sat_val
+    probs = []
+    for p in grid_points:
+        sample: list[float | None] = [None] * data_handler.n_features
+        for i, col in enumerate(active_cols):
+            sample[col] = p[i]
+        sample[sat_idx] = sat_val
+        probs.append(tpm.log_probability(np.array(sample, dtype=object)))
+
+    np_probs = np.array(probs).reshape(grid_shape)
+    return np_probs, feature_vals, feature_bins
+
+
+def _plot_tpm_pairplot(
+    data_handler: DataHandler,
+    tpm: TPM,
+    title: str = "TPM modeled log-probability pairplot (sat=1)",
+    n_bins: int = 30,
+) -> None:
+    """
+    Log a pairplot of TPM modeled log-probabilities (with sat=1) to MLflow.
+    Evaluates the TPM on the full joint grid.
+    """
+    feat_names = data_handler.feature_names
+    plot_names = [nm for nm in feat_names if nm != "sat"]
+    plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+    n = len(plot_names)
+    cell_size = 8.0 if n == 1 else 4.0
+    dpi = 100
+
+    # 1. Get full joint log-density on grid: log f(x, sat=1)
+    log_density, feat_vals, feat_bins = _get_tpm_grid_distribution(
+        data_handler, tpm, plot_cols, sat_val=1.0, n_bins=n_bins
+    )
+    joint_density = np.exp(log_density)
+
+    # Precompute bin widths for all dimensions
+    widths = []
+    for idx_in_plot, col in enumerate(plot_cols):
+        feat = data_handler.features[col]
+        is_cont = isinstance(feat, Contiguous) and not feat.discrete
+        widths.append(
+            np.diff(feat_bins[idx_in_plot])
+            if is_cont
+            else np.ones(len(feat_vals[idx_in_plot]))
+        )
+
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad("red")
+
+    # Use constrained_layout for automatic margin/colorbar management
+    fig, axes = plt.subplots(
+        n,
+        n,
+        figsize=(cell_size * n, cell_size * n),
+        squeeze=False,
+        layout="constrained",
+    )
+
+    for i in range(n):
+        for j in range(n):
+            ax = axes[i, j]
+            # Ensure consistent axis limits for each feature
+            ax.set_xlim(feat_bins[j][0], feat_bins[j][-1])
+            if i != j:
+                ax.set_ylim(feat_bins[i][0], feat_bins[i][-1])
+
+            if i == j:
+                # 1D Marginal Density: integrate out all axes except i
+                # f(x_i) = sum_{k != i} f(x) * prod_{k != i} delta_x_k
+                axes_to_integrate = [k for k in range(n) if k != i]
+                f_integrand = joint_density
+                for k in axes_to_integrate:
+                    w = widths[k]
+                    w_shape = [1] * n
+                    w_shape[k] = len(w)
+                    f_integrand = f_integrand * w.reshape(w_shape)
+
+                marginal_density = np.sum(f_integrand, axis=tuple(axes_to_integrate))
+                ax.bar(
+                    feat_bins[i][:-1],
+                    marginal_density,
+                    width=np.diff(feat_bins[i]),
+                    align="edge",
+                    color="steelblue",
+                    edgecolor="none",
+                )
+            else:
+                # 2D Marginal Density: integrate out all axes except i and j
+                # f(x_i, x_j) = sum_{k != i,j} f(x) * prod_{k != i,j} delta_x_k
+                axes_to_integrate = [k for k in range(n) if k not in [i, j]]
+                f_integrand = joint_density
+                for k in axes_to_integrate:
+                    w = widths[k]
+                    w_shape = [1] * n
+                    w_shape[k] = len(w)
+                    f_integrand = f_integrand * w.reshape(w_shape)
+
+                marginal_density_2d = np.sum(f_integrand, axis=tuple(axes_to_integrate))
+                # Transpose handling: imshow(M) -> Y=axis0, X=axis1
+                plot_m = marginal_density_2d if i < j else marginal_density_2d.T
+
+                log_density_2d = np.log(plot_m + 1e-12)
+                masked_m = np.ma.masked_where(plot_m <= 1e-12, log_density_2d)
+                ax.imshow(
+                    masked_m,
+                    origin="lower",
+                    aspect="auto",
+                    extent=[
+                        feat_bins[j][0],
+                        feat_bins[j][-1],
+                        feat_bins[i][0],
+                        feat_bins[i][-1],
+                    ],
+                    cmap=cmap,
+                )
+
+    # Styling and labeling
+    for i in range(n):
+        for j in range(n):
+            ax = axes[i, j]
+            # Ticks on all sides
+            ax.tick_params(
+                labelleft=(j == 0),
+                labelright=(j == n - 1),
+                labelbottom=(i == n - 1),
+                labeltop=(i == 0),
+                left=True,
+                right=True,
+                bottom=True,
+                top=True,
+                labelsize=10,
+            )
+
+            # Left side labels (Feature name or Mass for diagonal)
+            if j == 0:
+                y_lbl = "Marginal Density" if i == j else plot_names[i]
+                ax.set_ylabel(y_lbl, fontsize=14, rotation=90, labelpad=15)
+
+            # Right side labels - use figure coordinates to avoid n-dependence
+            if j == n - 1:
+                y_lbl = "Marginal Density" if i == j else plot_names[i]
+                # Right labels: constrained_layout will make room for this text!
+                ax.text(
+                    1.2,
+                    0.5,
+                    y_lbl,
+                    transform=ax.transAxes,
+                    fontsize=14,
+                    rotation=270,
+                    ha="left",
+                    va="center",
+                )
+
+            # X labels
+            if i == n - 1:
+                ax.set_xlabel(plot_names[j], fontsize=14)
+            if i == 0:
+                ax.set_title(plot_names[j], fontsize=14, pad=20)
+
+    # Shared colorbar for all 2D plots
+    im = None
+    for i in range(n):
+        for j in range(n):
+            if i != j:
+                images = axes[i, j].get_images()
+                if images:
+                    im = images[0]
+                    break
+        if im:
+            break
+
+    if im:
+        # Automatic placement via constrained_layout
+        fig.colorbar(im, ax=axes, location="right", format="%.2g", shrink=0.8)
+
+    fig.suptitle(title, fontsize=18)
+    mlflow.log_figure(fig, "tpm_modeled_pairplot.png", save_kwargs={"dpi": dpi})
+    plt.close(fig)
+
+
+def _plot_marginal_conditional_pairplot(
+    data_handler: DataHandler,
+    tpm: TPM,
+    log_px: float,
+    risk_level: float,
+    active_cols: List[int],
+    title_prefix: str = "Marginalized",
+    n_bins: int = 30,
+) -> None:
+    """
+    Grid-based marginalized conditional pairplots.
+    """
+    feat_names = data_handler.feature_names
+    plot_names = [feat_names[col] for col in active_cols]
+    n = len(plot_names)
+    cell_size = 8.0 if n == 1 else 4.0
+    dpi = 100
+
+    # 1. Get joint density of active columns (sat=1)
+    log_density_joint, feat_vals, feat_bins = _get_tpm_grid_distribution(
+        data_handler, tpm, active_cols, sat_val=1.0, n_bins=n_bins
+    )
+    joint_density = np.exp(log_density_joint)
+
+    # Precompute widths
+    widths = []
+    for i, col in enumerate(active_cols):
+        feat = data_handler.features[col]
+        is_cont = isinstance(feat, Contiguous) and not feat.discrete
+        widths.append(np.diff(feat_bins[i]) if is_cont else np.ones(len(feat_vals[i])))
+
+    cmap = plt.get_cmap("viridis").copy()
+    cmap.set_bad("red")
+
+    for plot_type in ["log_joint", "conditional_prob"]:
+        # Use constrained_layout for automatic margin/colorbar management
+        fig, axes = plt.subplots(
+            n,
+            n,
+            figsize=(cell_size * n, cell_size * n),
+            squeeze=False,
+            layout="constrained",
+        )
+
+        for i in range(n):
+            for j in range(n):
+                ax = axes[i, j]
+                # Consistent axis limits
+                ax.set_xlim(feat_bins[j][0], feat_bins[j][-1])
+                if i != j:
+                    ax.set_ylim(feat_bins[i][0], feat_bins[i][-1])
+
+                if i == j:
+                    # Marginalize to 1D
+                    axes_to_integrate_1d = [k for k in range(n) if k != i]
+                    f_integrand = joint_density
+                    for k in axes_to_integrate_1d:
+                        w = widths[k]
+                        w_shape = [1] * n
+                        w_shape[k] = len(w)
+                        f_integrand = f_integrand * w.reshape(w_shape)
+
+                    m1d_density = np.sum(f_integrand, axis=tuple(axes_to_integrate_1d))
+
+                    if plot_type == "conditional_prob":
+                        # P(sat=1 | x_i) = f(x_i, sat=1) / f(x_i)
+                        # f_x_i is the marginal density of x_i
+                        vals = m1d_density / np.exp(log_px)
+                        ax.bar(
+                            feat_bins[i][:-1],
+                            vals,
+                            width=np.diff(feat_bins[i]),
+                            align="edge",
+                            color="steelblue",
+                        )
+                        ax.axhline(
+                            1 - risk_level, color="red", linestyle="--", alpha=0.7
+                        )
+                        ax.set_ylim([0, 1.1])
+                    else:
+                        log_density_1d = np.log(m1d_density + 1e-12)
+                        ax.bar(
+                            feat_bins[i][:-1],
+                            log_density_1d,
+                            width=np.diff(feat_bins[i]),
+                            align="edge",
+                            color="steelblue",
+                        )
+                else:
+                    # Marginalize to 2D
+                    axes_to_integrate = [k for k in range(n) if k not in [i, j]]
+                    f_integrand = joint_density
+                    for k in axes_to_integrate:
+                        w = widths[k]
+                        w_shape = [1] * n
+                        w_shape[k] = len(w)
+                        f_integrand = f_integrand * w.reshape(w_shape)
+
+                    m2d_density = np.sum(f_integrand, axis=tuple(axes_to_integrate))
+                    plot_m = m2d_density if i < j else m2d_density.T
+
+                    if plot_type == "conditional_prob":
+                        grid_v = plot_m / np.exp(log_px)
+                        masked_v = np.ma.masked_where(grid_v <= 1e-12, grid_v)
+                        ax.imshow(
+                            masked_v,
+                            origin="lower",
+                            aspect="auto",
+                            extent=[
+                                feat_bins[j][0],
+                                feat_bins[j][-1],
+                                feat_bins[i][0],
+                                feat_bins[i][-1],
+                            ],
+                            cmap=cmap,
+                            vmin=0,
+                            vmax=1,
+                        )
+                    else:
+                        log_density_2d = np.log(plot_m + 1e-12)
+                        masked_h = np.ma.masked_where(plot_m <= 1e-12, log_density_2d)
+                        ax.imshow(
+                            masked_h,
+                            origin="lower",
+                            aspect="auto",
+                            extent=[
+                                feat_bins[j][0],
+                                feat_bins[j][-1],
+                                feat_bins[i][0],
+                                feat_bins[i][-1],
+                            ],
+                            cmap=cmap,
+                        )
+
+        # Labels and Styling
+        for i in range(n):
+            for j in range(n):
+                ax = axes[i, j]
+                ax.tick_params(
+                    labelleft=(j == 0),
+                    labelright=(j == n - 1),
+                    labelbottom=(i == n - 1),
+                    labeltop=(i == 0),
+                    left=True,
+                    right=True,
+                    bottom=True,
+                    top=True,
+                    labelsize=10,
+                )
+
+                if j == 0:
+                    cond_prob_m = i == j and plot_type == "conditional_prob"
+                    log_joint_m = i == j and plot_type == "log_joint"
+                    y_lbl = (
+                        "Cond Prob"
+                        if cond_prob_m
+                        else "Log Density"
+                        if log_joint_m
+                        else plot_names[i]
+                    )
+                    ax.set_ylabel(y_lbl, fontsize=14, rotation=90, labelpad=15)
+
+                if j == n - 1:
+                    y_lbl = (
+                        "Cond Prob"
+                        if (i == j and plot_type == "conditional_prob")
+                        else "Log Density"
+                        if (i == j and plot_type == "log_joint")
+                        else plot_names[i]
+                    )
+                    # Right labels: constrained_layout will make room for this text!
+                    ax.text(
+                        1.1,
+                        0.5,
+                        y_lbl,
+                        transform=ax.transAxes,
+                        fontsize=14,
+                        rotation=270,
+                        ha="left",
+                        va="center",
+                    )
+
+                if i == n - 1:
+                    ax.set_xlabel(plot_names[j], fontsize=14)
+                if i == 0:
+                    ax.set_title(plot_names[j], fontsize=14, pad=20)
+
+        # Shared colorbar for all 2D plots
+        im = None
+        for i_c in range(n):
+            for j_c in range(n):
+                if i_c != j_c:
+                    images = axes[i_c, j_c].get_images()
+                    if images:
+                        im = images[0]
+                        break
+            if im:
+                break
+
+        if im:
+            # Automatic placement via constrained_layout
+            fig.colorbar(im, ax=axes, location="right", format="%.2g", shrink=0.8)
+
+        fig.suptitle(f"{title_prefix} {plot_type}", fontsize=18)
+        mlflow.log_figure(
+            fig, f"tpm_marginal_{plot_type}.png", save_kwargs={"dpi": dpi}
+        )
+        plt.close(fig)
 
 
 def run_experiment(cfg: DictConfig) -> None:
@@ -170,7 +615,6 @@ def run_experiment(cfg: DictConfig) -> None:
 
     with mlflow.start_run():
         try:
-            # Set meaningful run name and tags
             run_name = (
                 f"n{cfg.problem.n_products}_"
                 f"{'corr' if cfg.problem.correlated else 'uncorr'}_"
@@ -260,12 +704,23 @@ def run_experiment(cfg: DictConfig) -> None:
                     _tpm_method = f"tree/{cfg.method.learner}"
                 _problem_name = cfg.problem.get("name", "unknown")
                 _n_products = cfg.problem.get("n_products", "?")
-                _pairplot_title = (
+
+                # 1. Empirical Pairplot
+                _empirical_title = (
+                    f"Empirical: {_problem_name}, {tpm_data.shape[1]-1}D | "
+                    f"{cfg.samples.train_decisions} samples (assuming sat=1)"
+                )
+                _plot_empirical_pairplot(
+                    tpm_data, feat_names, data_handler, title=_empirical_title
+                )
+
+                # 2. TPM Modeled Pairplot
+                _tpm_title = (
                     f"TPM: {_tpm_method} | "
                     f"{_problem_name}, {_n_products}d | "
-                    f"n_train={cfg.samples.train} (sat=1)"
+                    f"n_train={cfg.samples.train_decisions} (sat=1)"
                 )
-                _plot_tpm_pairplot(tpm_data, feat_names, title=_pairplot_title)
+                _plot_tpm_pairplot(data_handler, tpm, title=_tpm_title)
 
             else:
                 tpm = None
@@ -298,6 +753,23 @@ def run_experiment(cfg: DictConfig) -> None:
             )
             build_duration = time.time() - build_start_time
             mlflow.log_metric("build_duration", build_duration)
+
+            if tpm is not None and data_handler is not None:
+                log.info("Generating marginalized conditional plots...")
+                log.info(f"Uniform log density of x: {problem.x_log_density}")
+                log.info(f"Uniform density of x: {np.exp(problem.x_log_density)}")
+                # active columns are those not marginalized out (the products)
+                # and NOT the sat variable itself
+                n_marg = train_samples.shape[1]
+                active_cols = list(range(n_marg, tpm.data_handler.n_features - 1))
+                _plot_marginal_conditional_pairplot(
+                    data_handler,
+                    tpm,
+                    problem.x_log_density,
+                    risk_level=cfg.risk_level,
+                    active_cols=active_cols,
+                    title_prefix=f"Marginalized ({_tpm_method})",
+                )
 
             log.info("Solving model...")
             solve_start_time = time.time()
