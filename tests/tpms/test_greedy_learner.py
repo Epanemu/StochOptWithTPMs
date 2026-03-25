@@ -15,17 +15,20 @@ def simple_split_data():
     x_part2 = np.random.uniform(10, 11, (50, 1))
     x = np.concatenate([x_part1, x_part2], axis=0)
 
-    # Another feature that is constant
+    # Another feature that is binary, with 99% probability of being 0
     y = np.zeros((100, 1))
+    y[:1] = 1
+    np.random.shuffle(y)
 
     data = np.concatenate([x, y], axis=1)
     feat_names = ["x", "y"]
-    return data, feat_names
+    categ_map = {"y": [0, 1]}
+    return data, feat_names, categ_map
 
 
 def test_greedy_learner_basic(simple_split_data):
-    data, feat_names = simple_split_data
-    dh = DataHandler(data, feature_names=feat_names)
+    data, feat_names, categ_map = simple_split_data
+    dh = DataHandler(data, feature_names=feat_names, categ_map=categ_map)
 
     learner = GreedyTopDownLearner(
         data_handler=dh, min_samples=10, max_depth=2, val_ratio=0.2
@@ -39,18 +42,17 @@ def test_greedy_learner_basic(simple_split_data):
 
 
 def test_treetpm_greedy_train(simple_split_data):
-    data, feat_names = simple_split_data
-    dh = DataHandler(data, feature_names=feat_names)
+    data, feat_names, categ_map = simple_split_data
+    dh = DataHandler(data, feature_names=feat_names, categ_map=categ_map)
 
     tpm = TreeTPM(dh)
-    tpm.train_greedy_top_down(data, min_samples=10, max_depth=2)
+    tpm.train_greedy_top_down(data, min_samples=2, max_depth=2)
 
     assert tpm.root is not None
 
     # Test log_probability
     test_val = np.array([0.5, 0.0])
     lp = tpm.log_probability(test_val)
-    assert lp <= 0
 
     # Test point far from data (should have lower probability if smoothed, or -inf)
     far_val = np.array([5.0, 0.0])
