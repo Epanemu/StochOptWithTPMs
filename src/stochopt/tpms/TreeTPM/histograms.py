@@ -76,8 +76,9 @@ class Histogram(ABC):
 
 class JointHistogram(Histogram):
     """
-    Multivariate histogram for joint distributions of mixed categorical and continuous variables.
-    Stores log-probability mass. Density correction is performed during inference.
+    Multivariate histogram for joint distributions of mixed categorical and continuous
+    variables. Stores log-probability mass. Density correction is performed during
+    inference.
     """
 
     def __init__(
@@ -123,10 +124,40 @@ class JointHistogram(Histogram):
                         vm[int(val)] = (idx, log_group_size)
                 self.val_maps[var_idx] = vm
 
+    def __repr__(self) -> str:
+        s = f"JointHistogram(scope={self.scope}, shape={self.log_probs.shape}, types={self.feature_types})\n"
+        if self.log_probs.size > 50:
+            s += "  (Log-probs table too large to display, showing first 50 entries)\n"
+
+        # Try to show a table-like representation
+        header = " | ".join([f"v{v}" for v in self.scope] + ["log_prob", "prob"])
+        s += "  " + header + "\n"
+        s += "  " + "-" * len(header) + "\n"
+
+        count = 0
+        for idx in np.ndindex(self.log_probs.shape):
+            if count > 50:
+                s += "  ...\n"
+                break
+            line_parts = []
+            for i, v_idx in enumerate(self.scope):
+                if self.feature_types[i] == "continuous":
+                    edges = self.edges[v_idx]
+                    line_parts.append(f"[{edges[idx[i]]:.2f}, {edges[idx[i]+1]:.2f})")
+                else:
+                    groups = self.bins[v_idx]
+                    line_parts.append(str(groups[idx[i]]))
+            lp = self.log_probs[idx]
+            line_parts.append(f"{lp:.4f}")
+            line_parts.append(f"{np.exp(lp):.4f}")
+            s += "  " + " | ".join(line_parts) + "\n"
+            count += 1
+        return s
+
     def log_inference(self, x: npt.NDArray[np.float64]) -> float:
         """
-        Compute joint log-probability (density) for a sample. x can be a vector/array
-        matching the scope size.
+        Compute joint log-probability (density) for a sample. x can be a vector or
+        array matching the scope size.
         """
         if len(self.scope) == 0:
             # if we have no scope, we have a constant 1.0 histogram
@@ -170,7 +201,8 @@ class JointHistogram(Histogram):
         """
         keep_local_indices = [i for i, v in enumerate(self.scope) if v in vars_to_keep]
         if not keep_local_indices:
-            # if we marginalize out all variables, we are left with a constant 1.0 histogram
+            # if we marginalize out all variables, we are left with a constant 1.0
+            # histogram
             return JointHistogram([], {}, {}, np.array(0.0), [])
 
         axes_to_sum = tuple(
@@ -278,7 +310,8 @@ class JointHistogram(Histogram):
         """
         if self.scope != other.scope:
             raise NotImplementedError(
-                "Combining JointHistograms with different scopes is not yet implemented."
+                "Combining JointHistograms with different scopes "
+                "is not yet implemented."
             )
 
         l_w1 = np.log(w_self)

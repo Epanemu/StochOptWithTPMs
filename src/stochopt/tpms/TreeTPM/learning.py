@@ -111,6 +111,19 @@ class GreedyTopDownLearner:
     ) -> TreeNode:
         """
         Recursively split the data to build the tree.
+
+        Args:
+            train: npt.NDArray[np.float64]
+                The training data.
+            val: npt.NDArray[np.float64]
+                The validation data.
+            depth: int
+                The current depth of the tree.
+            current_bounds: List[Any]
+                The bounds of each feature in the current node.
+
+        Returns:
+            TreeNode: The root node of the learned tree.
         """
         N_attr = train.shape[1]
 
@@ -274,15 +287,6 @@ class GreedyTopDownLearner:
 
             if gain > best_gain:
                 best_gain = gain
-                # Thresholds for DecisionNode compatibility:
-                # Our DecisionNode._match needs boolean logic.
-                # Let's use a trick: for continuous we'll store a custom 'Interval' object or just set range.
-                # Actually, let's keep it simple: use a lambda or list for now.
-                # User request: "splitting to a given branch on more than a single value"
-                # For continuous, we can use (min, max) overlap.
-
-                # We'll use a range-based condition
-                # Use current_bounds which tracks the window of the feature in this branch
                 c_min, c_max = current_feature_bounds
                 c_left = (c_min, t)
                 c_right = (t, c_max)
@@ -326,6 +330,7 @@ class GreedyTopDownLearner:
         allowed_counts = counts[allowed_mask]
 
         if len(allowed_vals) < 2:
+            logger.debug("Not enough unique values to split on.")
             return None
 
         # Determine groupings

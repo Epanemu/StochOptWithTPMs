@@ -38,6 +38,11 @@ class TreeTPM(TPM):
         self.marginalized_root: Optional[TreeNode] = None
         self.marginalized_keep_indices: Optional[List[int]] = None
 
+    def __repr__(self) -> str:
+        if self.root is None:
+            return "TreeTPM(trained=False)"
+        return f"TreeTPM(trained=True):\n{self.root.__repr__()}"
+
     def train(self, data: npt.NDArray[np.float64], **kwargs: Any) -> "TreeTPM":
         """
         Train the TreeTPM by first learning a CNet and then converting it to a

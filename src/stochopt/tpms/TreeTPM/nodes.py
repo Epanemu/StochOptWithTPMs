@@ -18,7 +18,8 @@ class TreeNode(ABC):
     @abstractmethod
     def log_inference(self, x: npt.NDArray[np.float64]) -> float:
         """
-        Calculate the log-probability of a sample at this node.
+        Compute joint log-probability (density) for a sample. x can be a
+        vector or array matching the scope size.
 
         Args:
             x: npt.NDArray[np.float64]
@@ -27,6 +28,13 @@ class TreeNode(ABC):
         Returns:
             float: Log-probability value.
         """
+        pass
+
+    def __repr__(self) -> str:
+        return self._repr_indented(0)
+
+    @abstractmethod
+    def _repr_indented(self, level: int) -> str:
         pass
 
     @abstractmethod
@@ -87,6 +95,11 @@ class LeafNode(TreeNode):
         """Flatten a leaf: marginalize to kept variables."""
         keep_set = vars_to_keep & set(self.scope)
         return self.histogram.marginalize(keep_set)
+
+    def _repr_indented(self, level: int) -> str:
+        indent = "  " * level
+        hist_repr = self.histogram.__repr__().replace("\n", "\n" + indent + "  ")
+        return f"{indent}LeafNode(scope={self.scope}):\n{indent}  {hist_repr.strip()}"
 
 
 class DecisionNode(TreeNode):
@@ -249,3 +262,19 @@ class DecisionNode(TreeNode):
             raise ValueError("No valid histograms to combine")
 
         return base_h
+
+    def _repr_indented(self, level: int) -> str:
+        indent = "  " * level
+        s = (
+            f"{indent}DecisionNode(split_var={self.split_var}, "
+            f"type={self.feature_type}, weights={self.weights}):\n"
+        )
+        for i, child in enumerate(self.children):
+            if self.feature_type == "continuous":
+                edges = cast(npt.NDArray[np.float64], self.split_bins)
+                bin_str = f"[{edges[i]:.2f}, {edges[i+1]:.2f})"
+            else:
+                bin_str = str(list(self.split_bins)[i])
+            s += f"{indent}  Branch {i} ({bin_str}):\n"
+            s += child._repr_indented(level + 2) + "\n"
+        return s.rstrip()
