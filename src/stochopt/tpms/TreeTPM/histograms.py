@@ -294,13 +294,37 @@ class JointHistogram(Histogram):
     @staticmethod
     def unify_bins(bins1: List[Set[int]], bins2: List[Set[int]]) -> List[Set[int]]:
         """Unify two bin definitions to the most granular common grid."""
-        new_groups = []
-        for g1 in bins1:
-            for g2 in bins2:
-                inter = g1.intersection(g2)
-                if inter:
-                    new_groups.append(inter)
-        return new_groups
+        # 1. Collect all unique values from both sets of bins
+        all_values = set()
+        for b in bins1:
+            all_values.update(b)
+        for b in bins2:
+            all_values.update(b)
+
+        # 2. Map each value to a "signature": (index_in_bins1, index_in_bins2)
+        # We use -1 if a value is not present in one of the bin sets.
+        signatures: Dict[int, Tuple[int, int]] = {}
+        for val in all_values:
+            idx1 = -1
+            for i, b in enumerate(bins1):
+                if val in b:
+                    idx1 = i
+                    break
+            idx2 = -1
+            for i, b in enumerate(bins2):
+                if val in b:
+                    idx2 = i
+                    break
+            signatures[val] = (idx1, idx2)
+
+        # 3. Group values by their signatures
+        groups: Dict[Tuple[int, int], Set[int]] = {}
+        for val, sig in signatures.items():
+            if sig not in groups:
+                groups[sig] = set()
+            groups[sig].add(val)
+
+        return list(groups.values())
 
     def combine(
         self, other: "JointHistogram", w_self: float, w_other: float
@@ -356,15 +380,17 @@ class JointHistogram(Histogram):
             if self.feature_types[i] == "continuous":
                 if var_idx not in self.edges or var_idx not in other.edges:
                     raise ValueError(f"Missing edges for {var_idx}")
-                new_edge = self.unify_edges(self.edges[var_idx], other.edges[var_idx])
-                new_edges[var_idx] = new_edge
-                shapes.append(len(new_edge) - 1)
+                new_edge_set = self.unify_edges(
+                    self.edges[var_idx], other.edges[var_idx]
+                )
+                new_edges[var_idx] = new_edge_set
+                shapes.append(len(new_edge_set) - 1)
             else:
                 if var_idx not in self.bins or var_idx not in other.bins:
                     raise ValueError(f"Missing bins for {var_idx}")
-                new_bin = self.unify_bins(self.bins[var_idx], other.bins[var_idx])
-                new_bins[var_idx] = new_bin
-                shapes.append(len(new_bin))
+                new_bin_set = self.unify_bins(self.bins[var_idx], other.bins[var_idx])
+                new_bins[var_idx] = new_bin_set
+                shapes.append(len(new_bin_set))
 
         shape = tuple(shapes)
 
