@@ -82,7 +82,12 @@ class GreedyTopDownLearner:
         for i in range(D):
             feature = self.data_handler.features[i]
             if isinstance(feature, Contiguous):
-                initial_bounds.append(feature.bounds)
+                incl_bounds = feature.bounds
+                # increase the upper bound to correctly assign the max value
+                if feature.discrete:
+                    initial_bounds.append((incl_bounds[0], incl_bounds[1] + 1))
+                else:
+                    initial_bounds.append((incl_bounds[0], incl_bounds[1] + 0.001))
             else:
                 if hasattr(feature, "numeric_vals"):
                     initial_bounds.append(set(feature.numeric_vals))
@@ -248,17 +253,14 @@ class GreedyTopDownLearner:
         best_data = None
 
         for t in candidates:
-            # Binary split: <= t and > t
-            m_t = train[:, feat_idx] <= t
-            m_v = val[:, feat_idx] <= t
+            # Binary split: < t and >= t
+            m_t = train[:, feat_idx] < t
+            m_v = val[:, feat_idx] < t
 
             t_left, t_right = train[m_t], train[~m_t]
             v_left, v_right = val[m_v], val[~m_v]
 
-            if (
-                len(t_left) < self.min_samples / 2
-                or len(t_right) < self.min_samples / 2
-            ):
+            if len(t_left) < self.min_samples or len(t_right) < self.min_samples:
                 continue
 
             # Quick LL estimation
@@ -421,7 +423,7 @@ class GreedyTopDownLearner:
                     q = np.linspace(0, 100, n_bins_per_var + 1)
                     inner_edges = np.unique(np.percentile(v, q))
                     # Ensure they are within [c_min, c_max]
-                    inner_edges = np.clip(inner_edges, c_min + 1e-6, c_max - 1e-6)
+                    inner_edges = np.clip(inner_edges, c_min, c_max)
                     edges = np.unique(
                         np.concatenate(
                             [np.array([c_min]), inner_edges, np.array([c_max])]
@@ -430,9 +432,6 @@ class GreedyTopDownLearner:
                 else:
                     edges = np.linspace(c_min, c_max, n_bins_per_var + 1)
 
-                # Tiny margins for searchsorted
-                edges[0] -= 1e-7
-                edges[-1] += 1e-7
                 edges_dict[i] = edges
                 shape.append(len(edges) - 1)
             else:
