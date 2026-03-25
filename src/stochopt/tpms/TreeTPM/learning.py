@@ -295,7 +295,7 @@ class GreedyTopDownLearner:
                     [r_leaf.log_inference(x) + np.log(w_r) for x in v_right]
                 )
 
-            gain = (split_ll / len(val)) - base_ll if len(val) > 0 else 0
+            gain = split_ll - base_ll
 
             if gain > best_gain:
                 best_gain = gain
