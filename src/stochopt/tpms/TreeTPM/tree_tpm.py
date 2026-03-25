@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Sequence, Union
+from typing import Any, Dict, List, Optional, Sequence, Union, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -431,6 +431,12 @@ class TreeTPM(TPM):
             for i, child in enumerate(node.children):
                 child_id = child.node_id
                 log_w = np.log(max(1e-12, node.weights[i]))
+                if node.feature_type == "continuous":
+                    # Subtract log(width) for continuous split variables
+                    node.split_bins = cast(npt.NDArray[np.float64], node.split_bins)
+                    width = node.split_bins[i + 1] - node.split_bins[i]
+                    log_w -= np.log(max(1e-12, width))
+
                 ind = indicators[i]
 
                 # Link indicator to variable condition
