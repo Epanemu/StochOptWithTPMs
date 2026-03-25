@@ -113,22 +113,36 @@ class CNetTPM(TPM):
                 return float(-np.inf)
             else:
                 marginalized = True
-                sample[nones] = 0
-        # Discretize sample for inference
+
+        # Calculate discretization correction (sum of log bin widths)
+        total_log_correction = 0.0
         d_sample = sample.copy()
         if hasattr(self, "discretization_info"):
             for feat_idx, info in self.discretization_info.items():
+                if nones[feat_idx]:
+                    continue
                 bins = info["bins"]
                 val = sample[feat_idx]
                 bin_idx = np.digitize(val, bins) - 1
-                d_sample[feat_idx] = np.clip(bin_idx, 0, info["n_bins"] - 1)
+                bin_idx = np.clip(bin_idx, 0, info["n_bins"] - 1)
+
+                # Update discretized sample for CNet inference
+                d_sample[feat_idx] = bin_idx
+
+                width = bins[bin_idx + 1] - bins[bin_idx]
+
+                total_log_correction += np.log(max(1e-12, width))
 
         if marginalized:
             if self.marginalized_model is None:
                 raise ValueError("Marginalized CNet model not trained.")
-            sample[nones] = None
-            return float(self.marginalized_model.log_inference(d_sample.astype(int)))
-        return float(self.model.log_inference(d_sample.astype(int)))
+            d_sample = d_sample[self._kept_indices]
+            # Subtract log correction to get log-density from discrete inference
+            log_p = float(self.marginalized_model.log_inference(d_sample))
+            return log_p - total_log_correction
+
+        log_p = float(self.model.log_inference(d_sample))
+        return log_p - total_log_correction
 
     def log_probability_approx(
         self, sample: npt.NDArray[np.float64], **kwargs: Any
@@ -287,8 +301,28 @@ class CNetTPM(TPM):
                 solver=solver,
                 **kwargs,
             )
-            marg_root_var: pyo.Var = log_prob_vars[root_id]
-            return marg_root_var
+            discrete_root_var: pyo.Var = log_prob_vars[root_id]
+
+            # Apply discretization correction for continuous variables
+            # Correction = sum_j sum_i (bin_indicator_{j,i} * log(width_{j,i}))
+            total_corr = 0
+            for i, feat_idx in enumerate(kept_indices):
+                if feat_idx in self.discretization_info:
+                    info = self.discretization_info[feat_idx]
+                    bins = info["bins"]
+                    bin_vars = structured_inputs[i]
+                    for b_idx, bv in enumerate(bin_vars):
+                        width = bins[b_idx + 1] - bins[b_idx]
+                        total_corr += bv * np.log(max(1e-12, width))
+
+            # Final log density variable
+            total_lp = pyo.Var(bounds=(-1000, 10))
+            model_block.add_component(f"cnet_total_lp_{id(self)}", total_lp)
+            model_block.add_component(
+                f"cnet_total_lp_cons_{id(self)}",
+                pyo.Constraint(expr=total_lp == discrete_root_var - total_corr),
+            )
+            return total_lp
 
         structured_inputs = self._create_discretized_inputs(model_block, inputs)
 
@@ -296,8 +330,26 @@ class CNetTPM(TPM):
             self.model, model_block, structured_inputs, solver=solver, **kwargs
         )
 
-        root_var: pyo.Var = log_prob_vars[root_id]
-        return root_var
+        discrete_root_var = log_prob_vars[root_id]
+
+        # Apply discretization correction
+        total_corr = 0
+        for feat_idx in range(len(inputs)):
+            if feat_idx in self.discretization_info:
+                info = self.discretization_info[feat_idx]
+                bins = info["bins"]
+                bin_vars = structured_inputs[feat_idx]
+                for b_idx, bv in enumerate(bin_vars):
+                    width = bins[b_idx + 1] - bins[b_idx]
+                    total_corr += bv * np.log(max(1e-12, width))
+
+        total_lp = pyo.Var(bounds=(-1000, 10))
+        model_block.add_component(f"cnet_total_lp_{id(self)}", total_lp)
+        model_block.add_component(
+            f"cnet_total_lp_cons_{id(self)}",
+            pyo.Constraint(expr=total_lp == discrete_root_var - total_corr),
+        )
+        return total_lp
 
     def _create_discretized_inputs(
         self,
