@@ -31,7 +31,7 @@ def cnet_to_tree(
     if isinstance(node, cnet_impl.DecisionNode):
         children = []
         weights = []
-        for val, child in node.branches.items():
+        for val, child in sorted(node.branches.items()):
             children.append(cnet_to_tree(child, discretization_info))
             weights.append(node.probs[val])
 
