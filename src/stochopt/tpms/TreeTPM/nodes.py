@@ -163,9 +163,14 @@ class DecisionNode(TreeNode):
             if idx == -1:
                 return MIN_LOG_PROB
 
-        return float(
-            np.log(max(1e-12, self.weights[idx])) + self.children[idx].log_inference(x)
-        )
+        log_p = np.log(max(1e-12, self.weights[idx]))
+        if self.feature_type == "continuous":
+            # Subtract log(width) for continuous split variables
+            self.split_bins = cast(npt.NDArray[np.float64], self.split_bins)
+            width = self.split_bins[idx + 1] - self.split_bins[idx]
+            log_p -= np.log(max(1e-12, width))
+
+        return float(log_p + self.children[idx].log_inference(x))
 
     def marginalize(self, vars_to_keep: Set[int]) -> TreeNode:
         """
