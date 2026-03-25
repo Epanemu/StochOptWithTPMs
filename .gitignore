@@ -29,4 +29,5 @@ test_outputs/
 tmp_scripts/
 guides/
 .old/
-mlflow_scripts/
+mlflow*
+*debug*
