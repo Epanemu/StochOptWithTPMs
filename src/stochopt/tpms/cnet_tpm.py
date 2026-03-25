@@ -167,22 +167,24 @@ class CNetTPM(TPM):
                 if method == "uniform":
                     # Equal-width bins
                     bins = np.linspace(feat_data.min(), feat_data.max(), n_bins + 1)
-                    bins[0] -= 1e-6  # Ensure first value is included
-                    bins[-1] += 1e-6  # Ensure last value is included
+                    if feature.discrete:
+                        bins[-1] += 1  # Ensure last value is included
+                        bins = np.unique(np.round(bins).astype(int))
+                    else:
+                        bins[-1] += 1e-6  # Ensure last value is included
+                    # bins[0] -= 1e-6  # Ensure first value is included
 
                 elif method == "quantile":
                     # Equal-frequency bins (quantiles)
                     bins = np.percentile(feat_data, np.linspace(0, 100, n_bins + 1))
-                    bins = np.unique(bins)  # Remove duplicates
-                    if len(bins) < n_bins + 1:
-                        # If not enough unique quantiles, fall back to uniform
-                        logger.warning(
-                            f"Not enough unique quantiles for feature {feature.name}. "
-                            f"Falling back to uniform discretization."
-                        )
-                        bins = np.linspace(feat_data.min(), feat_data.max(), n_bins + 1)
-                    bins[0] -= 1e-6
-                    bins[-1] += 1e-6
+                    if feature.discrete:
+                        bins[-1] += 1  # Ensure last value is included
+                        bins = np.unique(np.round(bins).astype(int))
+                    else:
+                        bins[-1] += 1e-6  # Ensure last value is included
+                        bins = np.unique(bins)  # Remove duplicates
+                    # bins[0] -= 1e-6
+                    # bins[-1] += 1e-6
 
                 elif method == "kmeans":
                     # K-means clustering for bin edges
@@ -373,13 +375,17 @@ class CNetTPM(TPM):
                     structured_inputs.append(val)
                 elif isinstance(val, pyo.Var):
                     structured_inputs.append(val)
-                elif isinstance(feature, (Categorical, Binary)) and isinstance(
-                    val, int
-                ):
+                elif isinstance(feature, (Categorical, Binary)):
                     # if a single value, it is assumed to be an index - expand it to an encoded list
-                    encoded_val = [0] * len(feature.orig_vals)
-                    encoded_val[val] = 1
-                    structured_inputs.append(encoded_val)
+                    try:
+                        v_idx = int(val)
+                        encoded_val = [0] * len(feature.orig_vals)
+                        encoded_val[v_idx] = 1
+                        structured_inputs.append(encoded_val)
+                    except (ValueError, TypeError):
+                        raise ValueError(
+                            f"Unsupported input type for categorical: {type(val)}"
+                        )
                 else:
                     raise ValueError(f"Unsupported input type: {type(val)}")
 
