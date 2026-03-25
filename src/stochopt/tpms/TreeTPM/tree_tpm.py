@@ -287,6 +287,14 @@ class TreeTPM(TPM):
 
                 # Create joint indicators for each cell
                 joint_indices = list(np.ndindex(shape))
+                if joint_indices == []:
+                    logger.warning(f"TreeTPM: empty histogram found for node {node_id}")
+                    # empty histogram has p = 0?
+                    model_block.add_component(
+                        f"node_{node_id}_h_lp",
+                        pyo.Constraint(expr=term == MIN_LOG_PROB),
+                    )
+                    return
                 joint_inds = pyo.Var(joint_indices, domain=pyo.Binary)
                 model_block.add_component(f"node_{node_id}_h_joint", joint_inds)
                 model_block.add_component(
