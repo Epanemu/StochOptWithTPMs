@@ -1,5 +1,5 @@
 import logging
-from typing import Any, List, Optional, Set, Tuple
+from typing import Any, List, Optional, Set, Tuple, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -200,10 +200,16 @@ class GreedyTopDownLearner:
             # bins is a list of (min, max) intervals
             # We want an array of edges: [min0, max0, max1, ...]
             # Assuming contiguous intervals from _find_best_continuous_split
-            edges: List[float] = []
+            bins = cast(List[tuple[float, float]], bins)
+            edges: List[float] = [bins[0][0]]
             for interval in bins:
                 if not isinstance(interval, tuple):
                     raise ValueError("bins must be a list of tuples")
+                if not interval[0] == edges[-1]:
+                    raise ValueError(
+                        "bins must be contiguous, there is a gap between "
+                        f"{edges[-1]} and {interval[0]}"
+                    )
                 edges.append(interval[1])
             split_bins = np.array(edges)
         else:
