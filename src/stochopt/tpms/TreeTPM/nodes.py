@@ -151,9 +151,7 @@ class DecisionNode(TreeNode):
             # Continuous binning: find index i such that edges[i] <= val < edges[i+1]
             self.split_bins = cast(npt.NDArray[np.float64], self.split_bins)
             idx = int(np.digitize(val, self.split_bins) - 1)
-            idx = int(np.clip(idx, 0, len(self.split_bins) - 2))
-            # Optional: Return MIN_LOG_PROB if outside total range
-            if val < self.split_bins[0] or val > self.split_bins[-1]:
+            if val < self.split_bins[0] or val >= self.split_bins[-1]:
                 return MIN_LOG_PROB
         else:
             # Categorical grouping: find which set the value belongs to
