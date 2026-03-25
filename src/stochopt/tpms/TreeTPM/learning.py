@@ -144,9 +144,9 @@ class GreedyTopDownLearner:
         try:
             base_leaf = self._make_leaf(train, current_bounds)
             base_ll = float(
-                np.mean([base_leaf.log_inference(x) for x in val])
+                np.logaddexp.reduce([base_leaf.log_inference(x) for x in val])
                 if len(val) > 0
-                else 0
+                else -np.inf
             )
         except ValueError:
             base_ll = float("-inf")
@@ -172,14 +172,14 @@ class GreedyTopDownLearner:
                     train, val, i, base_ll, current_bounds
                 )
 
-            if split_res and split_res[0] > best_gain:
+            if split_res is not None and split_res[0] > best_gain:
                 best_gain, best_split = split_res[0], split_res[1:]
 
         if best_split is None or best_gain <= 0:
             if best_gain == -np.inf:
-                raise ValueError(
-                    "No split found, possibly due to leaf histograms being too large."
-                )
+                logger.debug("No split found.")
+                if depth == 0:
+                    raise ValueError("No split found at the root node.")
             return base_leaf
 
         feat_idx, bins, train_subsets, val_subsets, weights = best_split
@@ -281,9 +281,13 @@ class GreedyTopDownLearner:
 
             split_ll = 0
             if len(v_left) > 0:
-                split_ll += np.sum([l_leaf.log_inference(x) for x in v_left])
+                split_ll += np.logaddexp.reduce(
+                    [l_leaf.log_inference(x) + np.log(w_l) for x in v_left]
+                )
             if len(v_right) > 0:
-                split_ll += np.sum([r_leaf.log_inference(x) for x in v_right])
+                split_ll += np.logaddexp.reduce(
+                    [r_leaf.log_inference(x) + np.log(w_r) for x in v_right]
+                )
 
             gain = (split_ll / len(val)) - base_ll if len(val) > 0 else 0
 
@@ -368,8 +372,7 @@ class GreedyTopDownLearner:
             weights.append(len(train[m_t]) / len(train))
 
         # Evaluate split
-        split_ll = 0
-        valid_val = 0
+        split_lls = []
         for j in range(len(branches)):
             if len(val_subsets[j]) == 0:
                 continue
@@ -380,10 +383,13 @@ class GreedyTopDownLearner:
                 leaf = self._make_leaf(train_subsets[j], new_bounds)
             except ValueError:
                 return None
-            split_ll += np.sum([leaf.log_inference(x) for x in val_subsets[j]])
-            valid_val += len(val_subsets[j])
+            split_lls.append(
+                np.logaddexp.reduce(
+                    [leaf.log_inference(x) + np.log(weights[j]) for x in val_subsets[j]]
+                )
+            )
 
-        gain = (split_ll / valid_val) - base_ll if valid_val > 0 else 0
+        gain = np.logaddexp.reduce(split_lls) - base_ll
 
         if gain > 0:
             return (gain, feat_idx, branches, train_subsets, val_subsets, weights)
