@@ -253,7 +253,7 @@ class GreedyTopDownLearner:
         feat_vals = np.sort(train[:, feat_idx])
 
         # TODO make these candidate splits configurable, specified in the init
-        candidates = np.unique(np.percentile(feat_vals, [25, 50, 75]))
+        candidates = np.unique(np.percentile(feat_vals, [25, 37.5, 50, 62.5, 75]))
 
         best_gain = -np.inf
         best_data = None
