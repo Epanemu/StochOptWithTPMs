@@ -40,9 +40,39 @@ class LeafNode:
         self.tree: List[int] = tree
         self.log_factors: List[npt.NDArray[np.float64]] = log_factors
 
-    def __repr__(self, level=0):
+    def __repr__(self, level=0, discretization_info=None):
         indent = "  " * level
-        return f"{indent}LEAF(CLTree, scope={self.scope}, |scope|={len(self.scope)})"
+        s = f"{indent}LEAF(CLTree, scope={self.scope}, |scope|={len(self.scope)})\n"
+        s += f"{indent}  Tree Structure: {self.tree} (parent indices)\n"
+
+        # Display CPTs
+        for i, var_idx in enumerate(self.scope):
+            parent_local = self.tree[i]
+            lf = self.log_factors[i]
+            dom_size = lf.shape[0]
+
+            var_name = f"v{var_idx}"
+            if discretization_info and var_idx in discretization_info:
+                fname = discretization_info[var_idx]["feature_name"]
+                var_name = f"v{var_idx}({fname})"
+
+            if parent_local == -1:
+                s += f"{indent}  P({var_name}): {np.exp(lf[:, 0]).round(4).tolist()}\n"
+            else:
+                parent_var_idx = self.scope[parent_local]
+                p_var_name = f"v{parent_var_idx}"
+                if discretization_info and parent_var_idx in discretization_info:
+                    pfname = discretization_info[parent_var_idx]["feature_name"]
+                    p_var_name = f"v{parent_var_idx}({pfname})"
+
+                s += f"{indent}  P({var_name} | {p_var_name}):\n"
+                # Simple table representation
+                header = "      " + " ".join([f"p={v}" for v in range(lf.shape[1])])
+                s += f"{indent}    {header}\n"
+                for v in range(dom_size):
+                    row = " ".join([f"{p:.3f}" for p in np.exp(lf[v, :])])
+                    s += f"{indent}    v={v}: {row}\n"
+        return s.rstrip()
 
     def log_inference(self, x: npt.NDArray[np.float64]) -> float:
         """
@@ -105,13 +135,23 @@ class DecisionNode:
         self.probs: Dict[int, float] = probs
         self.branches: Dict[int, Any] = branches
 
-    def __repr__(self, level: int = 0) -> str:
+    def __repr__(self, level: int = 0, discretization_info=None) -> str:
         indent = "  " * level
-        s = f"{indent}DECISION on var[{self.decision_var}]"
+        var_name = f"var[{self.decision_var}]"
+        if discretization_info and self.decision_var in discretization_info:
+            fname = discretization_info[self.decision_var]["feature_name"]
+            var_name = f"var[{self.decision_var}]({fname})"
+
+        s = f"{indent}DECISION on {var_name}"
         for val in sorted(self.probs.keys()):
             prob = self.probs[val]
-            s += f"\n{indent}├─ val={val} (P={prob:.3f}):"
-            s += f"\n{self.branches[val].__repr__(level + 1)}"
+            range_info = ""
+            if discretization_info and self.decision_var in discretization_info:
+                bins = discretization_info[self.decision_var]["bins"]
+                range_info = f" range=[{bins[val]:.2f}, {bins[val+1]:.2f})"
+
+            s += f"\n{indent}├─ val={val}{range_info} (P={prob:.3f}):"
+            s += f"\n{self.branches[val].__repr__(level + 1, discretization_info)}"
         return s
 
     def log_inference(self, x: npt.NDArray[np.float64]) -> float:

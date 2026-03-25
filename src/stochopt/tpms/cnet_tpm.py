@@ -46,11 +46,11 @@ class CNetTPM(TPM):
             data: npt.NDArray[np.float64]
                 The training data.
             discretization_method: Literal["uniform", "quantile", "kmeans"]
-                Method to discretize continuous variables ("uniform", "quantile", "kmeans", default "quantile").
+                Method to discretize continuous variables (default "quantile").
             n_bins: int
                 Number of bins to use for discretization (default 10).
             **kwargs: Any
-                Hyperparameters for the CNet learning (e.g., min_instances_slice=50, max_depth=10).
+                Hyperparameters for CNet learning (e.g., min_instances_slice=50).
 
         Returns:
             CNetTPM: The trained instance.
@@ -72,10 +72,6 @@ class CNetTPM(TPM):
             categ_map=categ_map,
             feature_names=self.data_handler.feature_names,
         )
-
-        # CNet works with categorical/discrete features
-        # We use the discretized indices for training
-        logger.info(f"Discretized data shape: {discretized_data.shape}")
 
         # Learn the CNet tree using our custom implementation
         self.model = learn_cnet_tree(
@@ -138,7 +134,7 @@ class CNetTPM(TPM):
         self, sample: npt.NDArray[np.float64], **kwargs: Any
     ) -> float:
         """
-        Calculate an approximate log-probability. For CNet, this is the same as the exact.
+        Calculate approx log-probability. For CNet, same as the exact.
         """
         return self.log_probability(sample, **kwargs)
 
