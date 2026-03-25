@@ -90,7 +90,7 @@ class TestNewsvendorProblem:
         train_samples = newsvendor_problem.generate_samples(n_samples=20, seed=42)
 
         tpm_data, feat_names = newsvendor_problem.generate_tpm_data(
-            n_decisions=20, train_samples=train_samples, seed=42
+            n_decisions=20, train_samples=train_samples, seed=42, cartesian_product=True
         )
 
         # Check shape: [demands (2), orders (2), sat (1)]
