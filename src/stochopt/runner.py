@@ -367,7 +367,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
             # If TPM exists, log the probability of the solution
             if tpm is not None:
-                log.info("Calculating P(x_sol) from TPM...")
+                log.info("Calculating P(satisfied | x_sol) from TPM...")
                 # pad x_sol with None for marginalized variables
                 # and 1 for the satisfied constraint
                 n_marg = tpm.data_handler.n_features - len(x_sol) - 1
@@ -380,7 +380,7 @@ def run_experiment(cfg: DictConfig) -> None:
                     "true_tpm_prob_satisfied", np.exp(p_x_sol - problem.x_log_density)
                 )
                 log.info(
-                    "P(x_sol) from true TPM: "
+                    "P(satisfied | x_sol) from true TPM: "
                     + f"{np.exp(p_x_sol - problem.x_log_density)}"
                 )
                 # TODO make this somehow neat? also above, passing cfg is not ideal
@@ -395,7 +395,7 @@ def run_experiment(cfg: DictConfig) -> None:
                     np.exp(p_x_sol_approx - problem.x_log_density),
                 )
                 log.info(
-                    "P(x_sol) from approx TPM: "
+                    "P(satisfied | x_sol) from approx TPM: "
                     + f"{np.exp(p_x_sol_approx - problem.x_log_density)}"
                 )
 
