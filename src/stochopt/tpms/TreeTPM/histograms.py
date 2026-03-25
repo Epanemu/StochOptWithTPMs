@@ -166,7 +166,7 @@ class JointHistogram(Histogram):
         indices = []
         total_log_correction = 0.0
         for i, var_idx in enumerate(self.scope):
-            val = x[var_idx] if len(x) > len(self.scope) else x[i]
+            val = x[var_idx]
 
             if self.feature_types[i] == "categorical":
                 if var_idx not in self.val_maps:
@@ -370,7 +370,7 @@ class JointHistogram(Histogram):
 
         # check if shape fits in memory
         if np.prod(shape) > 1e8:
-            raise MemoryError("Shape of new log_probs table is too large.")
+            raise MemoryError(f"Shape of new log_probs table is too large: {shape}")
         new_log_probs = np.full(shape, -np.inf)
 
         # Precompute sub-cell mass redistribution mapping
@@ -379,6 +379,9 @@ class JointHistogram(Histogram):
         dim_maps_other = []
 
         for i, var_idx in enumerate(self.scope):
+            # mapping of the new bins to the original self / other bins
+            # (or -1 in case of out-of-bounds value) and the fraction
+            # of the original mass
             m_s, m_o = [], []
             if self.feature_types[i] == "continuous":
                 for j in range(len(new_edges[var_idx]) - 1):
@@ -387,26 +390,25 @@ class JointHistogram(Histogram):
                     idx_o = np.searchsorted(other.edges[var_idx], mid) - 1
 
                     # Fraction of parent bin mass: (new_width / old_width)
-                    new_w = float(new_edges[var_idx][j + 1]) - float(
-                        new_edges[var_idx][j]
-                    )
+                    new_w = float(new_edges[var_idx][j + 1] - new_edges[var_idx][j])
                     if 0 <= idx_s < len(self.edges[var_idx]) - 1:
                         old_w_s = (
                             self.edges[var_idx][idx_s + 1] - self.edges[var_idx][idx_s]
                         )
                         f_s = np.log(new_w) - np.log(old_w_s)
+                        m_s.append((idx_s, f_s))
                     else:
-                        f_s = -np.inf
+                        m_s.append((-1, -np.inf))
+
                     if 0 <= idx_o < len(other.edges[var_idx]) - 1:
                         old_w_o = (
                             other.edges[var_idx][idx_o + 1]
                             - other.edges[var_idx][idx_o]
                         )
                         f_o = np.log(new_w) - np.log(old_w_o)
+                        m_o.append((idx_o, f_o))
                     else:
-                        f_o = -np.inf
-                    m_s.append((idx_s, f_s))
-                    m_o.append((idx_o, f_o))
+                        m_o.append((-1, -np.inf))
             else:
                 nb_list = new_bins[var_idx]
                 for j, group in enumerate(nb_list):
