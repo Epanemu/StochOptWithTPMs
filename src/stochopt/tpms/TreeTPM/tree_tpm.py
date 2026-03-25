@@ -303,10 +303,10 @@ class TreeTPM(TPM):
                     if lp <= MIN_LOG_PROB:
                         return MIN_LOG_PROB
                     corr = 0
-                    for i, b_idx in enumerate(idx):
-                        if h.feature_types[i] == "continuous":
+                    for feat_type, i, b_idx in zip(h.feature_types, h.scope, idx):
+                        if feat_type == "continuous":
                             corr += np.log(
-                                max(1e-12, h.bins[i][b_idx + 1] - h.bins[i][b_idx])
+                                max(1e-12, h.edges[i][b_idx + 1] - h.edges[i][b_idx])
                             )
                         else:
                             corr += np.log(len(h.bins[i][b_idx]))
@@ -355,13 +355,13 @@ class TreeTPM(TPM):
                             val_idx = -1
                             try:
                                 v_val = _to_int(var_inputs)
-                                for j, group in enumerate(h.bins[i]):
+                                for j, group in enumerate(h.bins[var_idx]):
                                     if v_val in group:
                                         val_idx = j
                                         break
                             except (ValueError, TypeError):
                                 # Fallback for Pyomo variables used as discrete values
-                                for j, group in enumerate(h.bins[i]):
+                                for j, group in enumerate(h.bins[var_idx]):
                                     model_block.add_component(
                                         f"node_{node_id}_h_v{var_idx}_b{j}_link",
                                         pyo.Constraint(
@@ -381,7 +381,7 @@ class TreeTPM(TPM):
                                 )
                         else:
                             # One-hot vector inputs
-                            for j, group in enumerate(h.bins[i]):
+                            for j, group in enumerate(h.bins[var_idx]):
                                 model_block.add_component(
                                     f"node_{node_id}_h_v{var_idx}_b{j}_cat",
                                     pyo.Constraint(
@@ -396,7 +396,7 @@ class TreeTPM(TPM):
 
                     else:  # Continuous
                         x_var = var_inputs
-                        edges = h.bins[i]
+                        edges = h.edges[var_idx]
                         for b in range(n_bins):
                             lb, ub = edges[b], edges[b + 1]
                             # TODO add proper tighter M - lb - cmin and cmax - ub
