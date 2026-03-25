@@ -1,4 +1,4 @@
-from typing import Any, List, Union
+from typing import Any, List, Sequence, Union
 
 import numpy as np
 import pyomo.environ as pyo
@@ -232,7 +232,7 @@ def logsumexp_approximation_mip(
 def encode_spn(
     spn: SPN,
     mio_spn: pyo.Block,
-    input_vars: list[Any],
+    input_vars: Sequence[Any],
     leaf_encoding: str = "histogram",
     mio_epsilon: float = 1e-6,
     sum_approx: str = "lower",

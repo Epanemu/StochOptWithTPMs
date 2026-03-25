@@ -1,5 +1,5 @@
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Union
+from typing import Any, List, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -51,7 +51,7 @@ class TPM(ABC):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[
+        inputs: Sequence[
             Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]
         ],
         solver: str = "gurobi",

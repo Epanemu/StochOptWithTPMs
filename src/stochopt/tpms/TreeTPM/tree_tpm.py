@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -172,7 +172,7 @@ class TreeTPM(TPM):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[
+        inputs: Sequence[
             Optional[Union[pyo.Var, float, npt.NDArray[np.float64], List[pyo.Var]]]
         ],
         solver: str = "appsi_highs",
@@ -255,7 +255,7 @@ class TreeTPM(TPM):
         return model_block.log_prob[model_to_encode.node_id]
 
     def _add_node_constraints(
-        self, model_block: pyo.Block, node: TreeNode, inputs: List[Any]
+        self, model_block: pyo.Block, node: TreeNode, inputs: Sequence[Any]
     ) -> None:
         """
         Helper method to recursively add constraints for each tree node.

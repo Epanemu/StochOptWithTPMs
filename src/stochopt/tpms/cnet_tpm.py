@@ -1,5 +1,5 @@
 import logging
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Sequence, Union
 
 import numpy as np
 import numpy.typing as npt
@@ -228,7 +228,7 @@ class CNetTPM(TPM):
     def encode(
         self,
         model_block: pyo.Block,
-        inputs: List[Optional[Union[pyo.Var, float, List[float], List[pyo.Var]]]],
+        inputs: Sequence[Optional[Union[pyo.Var, float, List[float], List[pyo.Var]]]],
         solver: str = "gurobi",
         **kwargs: Any,
     ) -> pyo.Var:
@@ -304,7 +304,7 @@ class CNetTPM(TPM):
     def _create_discretized_inputs(
         self,
         model_block: pyo.Block,
-        inputs: List[Any],
+        inputs: Sequence[Any],
         feature_map: Optional[Dict[int, Feature]] = None,
     ) -> List[List[Any]]:
         """
