@@ -376,6 +376,8 @@ class GreedyTopDownLearner:
             train_subsets.append(train[m_t])
             val_subsets.append(val[m_v])
             weights.append(len(train[m_t]) / len(train))
+            if train_subsets[-1].shape[0] < self.min_samples:
+                return None
 
         # Evaluate split
         split_lls = []
