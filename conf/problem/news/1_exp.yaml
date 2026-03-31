@@ -1,0 +1,12 @@
+_target_: stochopt.problem.newsvendor.NewsvendorProblem
+name: newsvendor1_norm
+n_products: 1
+costs: [1.0]
+prices: [2.0]
+# TODO add more parameter configurations - different newsvendor variants - more newstypes with different distributions, allow for distributions that are not independent (i.e. correlated) - std is not enough for that in the multivariate normal distribution
+demand_dist: "exponential"
+demand_params:
+  mean: [10.0]
+  std: [2.0]
+x_density: "uniform"
+correlated: false
