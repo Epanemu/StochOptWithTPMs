@@ -615,12 +615,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
     with mlflow.start_run():
         try:
-            run_name = (
-                f"n{cfg.problem.n_products}_"
-                f"{'corr' if cfg.problem.correlated else 'uncorr'}_"
-                f"opt{cfg.samples.opt}_train{cfg.samples.train}"
-            )
-            mlflow.set_tag("mlflow.runName", run_name)
+            mlflow.set_tag("mlflow.runName", cfg.mlflow.experiment_name)
             if cfg.method.name == "tree":
                 mlflow.set_tag("method", f"tree_{cfg.method.learner}")
             else:
@@ -631,16 +626,19 @@ def run_experiment(cfg: DictConfig) -> None:
             mlflow.set_tag("samples.opt", str(cfg.samples.opt))
             mlflow.set_tag("samples.train", str(cfg.samples.train))
             mlflow.set_tag("samples.train_decisions", str(cfg.samples.train_decisions))
-            mlflow.set_tag("problem_type", cfg.problem.get("name", "unknown"))
+            mlflow.set_tag("problem.type", cfg.problem.get("name", "unknown"))
+            mlflow.set_tag("problem.distro", cfg.problem.demand_dist)
+            mlflow.set_tag("problem.corr", cfg.problem.correlated)
             mlflow.set_tag("status", "RUNNING")
 
             slurm_job_id = os.environ.get("SLURM_JOB_ID")
             mlflow.set_tag("slurm_job_id", slurm_job_id)
 
+            slurm_array_job_id = os.environ.get("SLURM_ARRAY_JOB_ID")
             slurm_array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
             if slurm_array_task_id is not None:
-                slurm_id = f"{slurm_job_id}_{slurm_array_task_id}"
-                mlflow.set_tag("slurm_array_task_id", slurm_array_task_id)
+                slurm_id = f"{slurm_array_job_id}_{slurm_array_task_id}"
+                # mlflow.set_tag("slurm_array_task_id", slurm_array_task_id)
             else:
                 slurm_id = str(slurm_job_id)
             mlflow.set_tag("slurm_id", slurm_id)  # combined, for quick lookup
