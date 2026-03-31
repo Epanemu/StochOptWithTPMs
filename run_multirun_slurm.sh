@@ -12,7 +12,7 @@
 # Each run will be submitted as a separate SLURM job
 
 echo "=== Starting SLURM Multirun Experiments ==="
-echo "This will submit 108 jobs to the SLURM cluster (6 methods × 3 sample sizes × 6 problem variants)"
+echo "This will submit 126 jobs to the SLURM cluster (6 methods × 3 sample sizes × 7 problem variants)"
 echo ""
 
 # Read MLflow server URI from connection file (if available)
@@ -73,7 +73,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=100 \
   samples.train=100 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run100.out 2>&1 &
+  problem=news/1_norm,news/1_exp,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run100.out 2>&1 &
 
 # Run 2: opt=train=1000
 echo "→ Submitting experiments with 1000 samples to SLURM..."
@@ -84,7 +84,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run1000.out 2>&1 &
+  problem=news/1_norm,news/1_exp,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run1000.out 2>&1 &
 
 # Run 3: opt=train=10000
 echo "→ Submitting experiments with 10000 samples to SLURM..."
@@ -96,7 +96,7 @@ python main.py \
   samples.opt=10000 \
   samples.train=10000 \
   hydra.launcher.mem_gb=128 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run10000.out 2>&1 &
+  problem=news/1_norm,news/1_exp,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run10000.out 2>&1 &
 
 echo ""
 echo "=== All Jobs Submitted to SLURM! ==="
