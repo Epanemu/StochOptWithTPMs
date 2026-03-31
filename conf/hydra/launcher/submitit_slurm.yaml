@@ -4,7 +4,7 @@
 # Each multirun job will be submitted as a separate SLURM job
 
 submitit_folder: ${hydra.sweep.dir}/.submitit/%j
-timeout_min: 1440
+timeout_min: 43200 # 30 days to be safe
 cpus_per_task: 16
 gpus_per_node: 0
 tasks_per_node: 1
@@ -12,7 +12,8 @@ mem_gb: 64
 nodes: 1
 name: SO-TPM_${hydra.job.override_dirname}
 # SLURM partition (adjust based on your cluster)
-partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", etc.
+#partition: "cpu,amd"  # Set to your partition name, e.g., "compute", "batch", etc.
+partition: "cpulong,amdlong"  # Set to your partition name, e.g., "compute", "batch", etc.
 
 # Additional SLURM parameters
 # qos: null
