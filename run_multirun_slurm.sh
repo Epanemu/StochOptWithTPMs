@@ -95,6 +95,7 @@ python main.py \
   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
   samples.opt=10000 \
   samples.train=10000 \
+  hydra.launcher.mem_gb=128 \
   problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr > run10000.out 2>&1 &
 
 echo ""
