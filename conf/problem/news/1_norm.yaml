@@ -1,5 +1,5 @@
 _target_: stochopt.problem.newsvendor.NewsvendorProblem
-name: newsvendor
+name: newsvendor1_norm
 n_products: 1
 costs: [1.0]
 prices: [2.0]
