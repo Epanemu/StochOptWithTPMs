@@ -9,6 +9,9 @@ statsmodels==0.14.0
 networkx==3.2.1
 scikit-learn>=1.0.0  # For KMeans discretization in CNetTPM
 git+https://github.com/SPFlow/SPFlow@d01f71d6618e95267609c1899d8e8e95d64965e5
+torch>=2.0.0
+omlt>=1.0.0
+onnx>=1.14.0
 
 # Experiment tracking
 mlflow>=2.0.0

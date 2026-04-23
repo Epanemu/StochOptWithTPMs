@@ -7,6 +7,7 @@ from scipy.stats import expon, norm
 
 from stochopt.data.Features import Binary, Categorical
 from stochopt.problem.base import BaseProblem
+from stochopt.tpms.nn_pm import NNPM
 from stochopt.tpms.tpm import TPM
 
 
@@ -243,7 +244,7 @@ class NewsvendorProblem(BaseProblem):
     def build_model(
         self,
         method: str,
-        tpm: Optional[TPM] = None,
+        tpm: Optional[TPM | NNPM] = None,
         data_handler: Any = None,
         scenarios: Optional[npt.NDArray[np.float64]] = None,
         risk_level: float = 0.05,
@@ -352,6 +353,27 @@ class NewsvendorProblem(BaseProblem):
                 target_log_prob = np.log(1 - risk_level) + x_density
 
             model.chance_constr = pyo.Constraint(expr=output >= target_log_prob)
+
+        elif method == "nn_pm":
+            if tpm is None:
+                raise ValueError("NNPM object required for nn_pm method")
+
+            from stochopt.tpms.nn_pm import NNPM
+
+            if not isinstance(tpm, NNPM):
+                raise TypeError(f"Expected NNPM, got {type(tpm)}")
+
+            model.nn_block = pyo.Block()
+            nn_inputs = [model.x[i] for i in range(self.n_products)]
+
+            logit_output = tpm.encode(
+                model.nn_block, nn_inputs, solver=self.solver_name, **kwargs
+            )
+
+            # Constraint: sigmoid(logit) >= 1 - alpha
+            # Equivalent: logit >= log((1 - alpha) / alpha)
+            target_logit = float(np.log((1 - risk_level) / risk_level))
+            model.chance_constr = pyo.Constraint(expr=logit_output >= target_logit)
 
         self.model = model
         return model
