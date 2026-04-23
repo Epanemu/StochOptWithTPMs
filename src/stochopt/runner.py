@@ -101,8 +101,14 @@ def _plot_empirical_pairplot(
     sat_idx = feat_names.index("sat")
     sat_mask = tpm_data[:, sat_idx] == 1
     data = tpm_data[sat_mask]
-    plot_names = [nm for nm in feat_names if nm != "sat"]
-    plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+
+    all_plot_names = [nm for nm in feat_names if nm != "sat"]
+    all_plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+
+    # Limit to 10 dimensions for readability
+    plot_names = all_plot_names[:10]
+    plot_cols = all_plot_cols[:10]
+
     data = data[:, plot_cols]
     n = len(plot_names)
     cell_size = 4.0
@@ -239,8 +245,12 @@ def _plot_tpm_pairplot(
     Evaluates the TPM on the full joint grid.
     """
     feat_names = data_handler.feature_names
-    plot_names = [nm for nm in feat_names if nm != "sat"]
-    plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+    all_plot_names = [nm for nm in feat_names if nm != "sat"]
+    all_plot_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+
+    # Limit to 10 dimensions for readability
+    plot_names = all_plot_names[:10]
+    plot_cols = all_plot_cols[:10]
     n = len(plot_names)
     cell_size = 8.0 if n == 1 else 4.0
     dpi = 100
@@ -409,6 +419,8 @@ def _plot_marginal_conditional_pairplot(
     Grid-based marginalized conditional pairplots.
     """
     feat_names = data_handler.feature_names
+    # Limit to 10 dimensions for readability
+    active_cols = active_cols[:10]
     plot_names = [feat_names[col] for col in active_cols]
     n = len(plot_names)
     cell_size = 8.0 if n == 1 else 4.0
