@@ -12,6 +12,7 @@ git+https://github.com/SPFlow/SPFlow@d01f71d6618e95267609c1899d8e8e95d64965e5
 torch>=2.0.0
 omlt>=1.0.0
 onnx>=1.14.0
+onnxscript>=0.1.0  # some versions require it
 
 # Experiment tracking
 mlflow>=2.0.0
