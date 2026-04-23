@@ -265,10 +265,11 @@ class NNPM:
                     # val_acc = (val_preds == val_sat_t).float().mean()
                     val_mae = (val_preds - val_sat_t).abs().mean()
 
-                mlflow.log_metric("nn_train_loss", loss.item(), step=epoch)
-                mlflow.log_metric("nn_val_loss", val_loss.item(), step=epoch)
-                # mlflow.log_metric("nn_val_accuracy", val_acc.item(), step=epoch)
-                mlflow.log_metric("nn_val_mae", val_mae.item(), step=epoch)
+                if mlflow.active_run():
+                    mlflow.log_metric("nn_train_loss", loss.item(), step=epoch)
+                    mlflow.log_metric("nn_val_loss", val_loss.item(), step=epoch)
+                    # mlflow.log_metric("nn_val_accuracy", val_acc.item(), step=epoch)
+                    mlflow.log_metric("nn_val_mae", val_mae.item(), step=epoch)
                 if val_loss.item() < best_val_loss:
                     best_val_loss = val_loss.item()
                     torch.save(
@@ -282,13 +283,14 @@ class NNPM:
                     )
 
                 if epoch % (log_every * 10) == 0:
-                    # logger.info(f"Epoch {epoch}/{epochs}: loss={loss.item():.4f}, val_acc={val_acc.item():.4f}")
                     logger.info(
-                        f"Epoch {epoch}/{epochs}: loss={loss.item():.4f}, val_mae={val_mae.item():.4f}"
+                        f"Epoch {epoch}/{epochs}: loss={loss.item():.4f}, "
+                        f"val_mae={val_mae.item():.4f}"
                     )
 
-        mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
-        mlflow.log_metric("best_val_loss", best_val_loss)
+        if mlflow.active_run():
+            mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
+            mlflow.log_metric("best_val_loss", best_val_loss)
 
         # Store input bounds
         margin = (bounds_max - bounds_min) * 0.01 + 1e-6
@@ -355,6 +357,29 @@ class NNPM:
         print("model encoded to pyomo")
 
         for i, inp_var in enumerate(inputs):
+            if isinstance(inp_var, pyo.Var):
+                lb, ub = self.input_bounds[i]
+                # Tighten bounds if necessary
+                curr_lb = (
+                    pyo.value(inp_var.lb) if inp_var.lb is not None else -float("inf")
+                )
+                curr_ub = (
+                    pyo.value(inp_var.ub) if inp_var.ub is not None else float("inf")
+                )
+
+                new_lb = max(curr_lb, lb)
+                new_ub = min(curr_ub, ub)
+
+                inp_var.setlb(new_lb)
+                inp_var.setub(new_ub)
+
+                # Ensure current value is within bounds to avoid initialization errors
+                curr_val = pyo.value(inp_var)
+                if curr_val is None or curr_val < new_lb:
+                    inp_var.set_value(new_lb)
+                elif curr_val > new_ub:
+                    inp_var.set_value(new_ub)
+
             model_block.add_component(
                 f"nn_input_link_{i}",
                 pyo.Constraint(expr=model_block.nn.inputs[i] == inp_var),
