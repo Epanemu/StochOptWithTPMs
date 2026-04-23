@@ -70,12 +70,12 @@ class NewsvendorProblem(BaseProblem):
         if self.correlated:
             # generate half of products correlated and half correlated in total
             correlated_samples = self._generate_correlated_samples(
-                n_samples // 2,
+                n_samples,
                 self.demand_params["mean"][: self.n_products // 2],
                 self.demand_params["std"][: self.n_products // 2],
             )
             correlated_total_samples = self._generate_correlated_samples_in_total(
-                n_samples // 2,
+                n_samples,
                 self.n_products // 2,
                 sum(self.demand_params["mean"][self.n_products // 2 :]),
                 sum(self.demand_params["std"][self.n_products // 2 :]),
