@@ -19,3 +19,7 @@ max_hidden_size: 1000
 # Validation
 val_size: 10000
 log_every: 10
+
+hydra:
+  launcher:
+    partition: "gpulong,amdgpulong"
