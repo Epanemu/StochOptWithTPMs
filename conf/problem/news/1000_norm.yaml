@@ -214,4 +214,4 @@ correlated: false
 # Override SLURM resources for large problem
 hydra:
   launcher:
-    mem_gb: 256
+    mem_gb: 512
