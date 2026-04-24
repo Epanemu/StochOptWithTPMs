@@ -5,6 +5,8 @@ import sys
 import hydra
 from omegaconf import DictConfig, OmegaConf
 
+os.environ["MLFLOW_ENABLE_ASYNC_LOGGING"] = "true"
+
 
 @hydra.main(version_base=None, config_path="conf", config_name="config")
 def main(cfg: DictConfig) -> None:
