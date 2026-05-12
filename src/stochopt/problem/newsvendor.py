@@ -164,8 +164,8 @@ class NewsvendorProblem(BaseProblem):
                         )
                         max_val = mean + 3 * std
                     elif self.demand_dist == "exponential":
-                        # For exponential,use mean * 3 (covers ~95% of values)
-                        max_val = mean * 3
+                        # For exponential,use mean * 4 (covers >98% of values)
+                        max_val = mean * 4
                     else:
                         # Fallback: use mean * 2
                         max_val = mean * 2

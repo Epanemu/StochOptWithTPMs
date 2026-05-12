@@ -176,7 +176,7 @@ class NNPM:
         best_checkpoint_path = os.path.join(folder, "best_checkpoint.pt")
 
         # Determine input dimensionality
-        x_probe = problem.generate_decision_samples(1, seed=seed, xi=train_samples)
+        x_probe = problem.generate_decision_samples(1, seed=seed)
         self.n_x = x_probe.shape[1]
 
         # Determine hidden sizes
@@ -211,9 +211,7 @@ class NNPM:
         # Build validation set
         logger.info("Generating validation set...")
         val_xi = problem.generate_samples(val_size, seed=seed + 1000)
-        val_x = problem.generate_decision_samples(
-            val_size, seed=seed + 2000, xi=train_samples
-        )
+        val_x = problem.generate_decision_samples(val_size, seed=seed + 2000)
         # compute mean satisfaction
         val_sat = np.zeros(val_size)
         for i in range(val_size):
@@ -234,7 +232,7 @@ class NNPM:
         for epoch in range(epochs):
             self.model.train()
 
-            x_batch = problem.generate_decision_samples(batch_size, xi=train_samples)
+            x_batch = problem.generate_decision_samples(batch_size)
             xi_samples = problem.generate_samples(batch_size)
 
             targets = np.zeros(batch_size, dtype=np.float32)
@@ -357,29 +355,6 @@ class NNPM:
         print("model encoded to pyomo")
 
         for i, inp_var in enumerate(inputs):
-            if isinstance(inp_var, pyo.Var):
-                lb, ub = self.input_bounds[i]
-                # Tighten bounds if necessary
-                curr_lb = (
-                    pyo.value(inp_var.lb) if inp_var.lb is not None else -float("inf")
-                )
-                curr_ub = (
-                    pyo.value(inp_var.ub) if inp_var.ub is not None else float("inf")
-                )
-
-                new_lb = max(curr_lb, lb)
-                new_ub = min(curr_ub, ub)
-
-                inp_var.setlb(new_lb)
-                inp_var.setub(new_ub)
-
-                # Ensure current value is within bounds to avoid initialization errors
-                curr_val = pyo.value(inp_var)
-                if curr_val is None or curr_val < new_lb:
-                    inp_var.set_value(new_lb)
-                elif curr_val > new_ub:
-                    inp_var.set_value(new_ub)
-
             model_block.add_component(
                 f"nn_input_link_{i}",
                 pyo.Constraint(expr=model_block.nn.inputs[i] == inp_var),
