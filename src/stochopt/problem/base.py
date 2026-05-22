@@ -101,6 +101,23 @@ class BaseProblem(ABC):
         pass
 
     @abstractmethod
+    def compute_margin(
+        self, xi: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """
+        Compute continuous satisfaction margin for given xi and x.
+        The constraint is satisfied if the margin is >= 0.
+
+        Args:
+            xi: Context samples.
+            x: Decision samples.
+
+        Returns:
+            np.ndarray: Continuous margin.
+        """
+        pass
+
+    @abstractmethod
     def get_feature_names(self) -> Tuple[List[str], List[str], str]:
         """
         Get feature names for TPM data.

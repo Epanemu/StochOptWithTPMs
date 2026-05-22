@@ -28,6 +28,7 @@ try:
     from stochopt.tpms.nn_pm import NNPM
 except ImportError:
     logging.warning("Could not import NNPM. NN PM training will fail.")
+    NNPM = Any  # type: ignore
 
 log = logging.getLogger(__name__)
 
@@ -1025,6 +1026,38 @@ def run_experiment(cfg: DictConfig) -> None:
                     tpm_data_mock, feat_names, data_handler, title=_empirical_title
                 )
 
+            elif method_type == "quantile_nn":
+                log.info("Training QuantileNN...")
+                from stochopt.quantile.quantile_nn import QuantileNN
+
+                nn_cfg = cfg.method
+
+                local_run_dir = HydraConfig.get().runtime.output_dir
+
+                quantilenn = QuantileNN()
+                tpm_start_time = time.time()
+                quantilenn.train(
+                    problem,
+                    train_samples,
+                    epochs=nn_cfg.get("epochs", 1000),
+                    batch_size=nn_cfg.get("batch_size", 256),
+                    lr=nn_cfg.get("lr", 1e-3),
+                    hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
+                    min_hidden_size=nn_cfg.get("min_hidden_size", 5),
+                    max_hidden_size=nn_cfg.get("max_hidden_size", 100),
+                    val_size=nn_cfg.get("val_size", 10000),
+                    log_every=nn_cfg.get("log_every", 10),
+                    seed=cfg.seed,
+                    quantile=1 - cfg.risk_level,
+                    folder=local_run_dir,
+                )
+                tpm_train_duration = time.time() - tpm_start_time
+                mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+
+                tpm = None
+                data_handler = None
+                tpm_data = None
+
             elif method_type == "tpm":
                 log.info("Generating TPM training data...")
                 tpm_data, feat_names = problem.generate_tpm_data(
@@ -1104,10 +1137,20 @@ def run_experiment(cfg: DictConfig) -> None:
                 build_method_name = "tpm"
             elif method_type == "nn_pm":
                 build_method_name = "nn_pm"
+            elif method_type == "quantile_nn":
+                build_method_name = "quantile_nn"
+
+            tpm_arg: TPM | QuantileNN | NNPM | None
+            if method_type == "nn_pm":
+                tpm_arg = nnpm
+            elif method_type == "quantile_nn":
+                tpm_arg = quantilenn
+            else:
+                tpm_arg = tpm
 
             problem.build_model(
                 method=build_method_name,
-                tpm=tpm if method_type != "nn_pm" else nnpm,
+                tpm=tpm_arg,
                 data_handler=data_handler,
                 scenarios=opt_samples,
                 risk_level=cfg.risk_level,
@@ -1205,6 +1248,12 @@ def run_experiment(cfg: DictConfig) -> None:
                 p_sat = float(nnpm.predict_prob(x_sol.reshape(1, -1))[0])
                 mlflow.log_metric("nn_prob_satisfied", p_sat)
                 log.info(f"P(satisfied | x_sol) from NNPM: {p_sat}")
+
+            elif method_type == "quantile_nn":
+                log.info("Calculating predicted quantile from QuantileNN...")
+                q_val = float(quantilenn.predict_quantile(x_sol.reshape(1, -1))[0])
+                mlflow.log_metric("qnn_pred_margin_quantile", q_val)
+                log.info(f"Predicted margin quantile from QuantileNN: {q_val}")
 
             elif tpm is not None:
                 log.info("Calculating P(satisfied | x_sol) from TPM...")

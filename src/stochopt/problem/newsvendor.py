@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, cast
 
 import numpy as np
 import numpy.typing as npt
@@ -201,6 +201,15 @@ class NewsvendorProblem(BaseProblem):
         satisfied = np.array(np.all(x >= xi, axis=1, keepdims=True), dtype=bool)
         return satisfied
 
+    def compute_margin(
+        self, xi: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
+    ) -> npt.NDArray[np.float64]:
+        """
+        Compute continuous satisfaction margin for newsvendor constraint.
+        Margin is min_j (x_j - xi_j).
+        """
+        return cast(npt.NDArray[np.float64], np.min(x - xi, axis=1, keepdims=True))
+
     def get_feature_names(self) -> Tuple[List[str], List[str], str]:
         """
         Get feature names for TPM data.
@@ -374,6 +383,25 @@ class NewsvendorProblem(BaseProblem):
             # Equivalent: logit >= log((1 - alpha) / alpha)
             target_logit = float(np.log((1 - risk_level) / risk_level))
             model.chance_constr = pyo.Constraint(expr=logit_output >= target_logit)
+
+        elif method == "quantile_nn":
+            if tpm is None:
+                raise ValueError("QuantileNN object required for quantile_nn method")
+
+            from stochopt.quantile.quantile_nn import QuantileNN
+
+            if not isinstance(tpm, QuantileNN):
+                raise TypeError(f"Expected QuantileNN, got {type(tpm)}")
+
+            model.nn_block = pyo.Block()
+            nn_inputs = [model.x[i] for i in range(self.n_products)]
+
+            margin_output = tpm.encode(
+                model.nn_block, nn_inputs, solver=self.solver_name, **kwargs
+            )
+
+            # Constraint: The q-th quantile of the margin must be >= 0
+            model.chance_constr = pyo.Constraint(expr=margin_output >= 0)
 
         self.model = model
         return model
