@@ -803,6 +803,58 @@ def _plot_nnpm_conditional_pairplot(
     plt.close(fig)
 
 
+def _plot_nnpm_1d_interpolation(
+    data_handler: DataHandler,
+    nnpm: NNPM,
+    title: str = "NNPM 1D Min-Max Interpolation",
+    n_points: int = 1000,
+) -> None:
+    """
+    Plot a 1D projection of the NNPM outputs by linearly interpolating
+    between the minimum and maximum values of each decision variable.
+    """
+    feat_names = data_handler.feature_names
+    decision_cols = [i for i, nm in enumerate(feat_names) if nm != "sat"]
+    if len(decision_cols) > nnpm.n_x:
+        decision_cols = decision_cols[-nnpm.n_x :]
+
+    min_vals_list = []
+    max_vals_list = []
+    for col in decision_cols:
+        feat = data_handler.features[col]
+        if isinstance(feat, Contiguous):
+            min_vals_list.append(feat.bounds[0])
+            max_vals_list.append(feat.bounds[1])
+        elif isinstance(feat, (Categorical, Binary)):
+            min_vals_list.append(0.0)
+            max_vals_list.append(len(feat.orig_vals) - 1.0)
+        else:
+            min_vals_list.append(0.0)
+            max_vals_list.append(1.0)
+
+    min_vals = np.array(min_vals_list)
+    max_vals = np.array(max_vals_list)
+
+    t = np.linspace(0, 1, n_points)
+    points = min_vals + t[:, None] * (max_vals - min_vals)
+    probs = nnpm.predict_prob(points).flatten()
+
+    fig, ax = plt.subplots(figsize=(8, 6))
+
+    ax.fill_between(t, probs, step="mid", color="steelblue", alpha=0.7)
+    ax.plot(t, probs, drawstyle="steps-mid", color="midnightblue", linewidth=1.5)
+
+    ax.set_ylim((0, 1.1))
+    ax.set_xlabel("Interpolation from Min to Max (Normalized)")
+    ax.set_ylabel("P(sat=1 | x)")
+    ax.set_title(title, fontsize=14)
+    ax.grid(True, alpha=0.3)
+
+    fig.tight_layout()
+    mlflow.log_figure(fig, "nn_1d_interpolation.png", save_kwargs={"dpi": 100})
+    plt.close(fig)
+
+
 def _get_nnpm_grid_probs(
     data_handler: DataHandler,
     nnpm: NNPM,
@@ -1015,6 +1067,10 @@ def run_experiment(cfg: DictConfig) -> None:
                 )
                 _plot_nnpm_conditional_pairplot(
                     data_handler, nnpm, title=_nn_title, plot_names=x_names
+                )
+
+                _plot_nnpm_1d_interpolation(
+                    data_handler, nnpm, title=_nn_title + " (1D Interp)"
                 )
 
                 # Plot the empirical distribution of the training data
