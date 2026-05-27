@@ -1,0 +1,11 @@
+_target_: stochopt.problem.newsvendor.NewsvendorProblem
+name: newsvendor1_uniform
+n_products: 1
+costs: [1.0]
+prices: [2.0]
+demand_dist: "uniform"
+demand_params:
+  min: [0.0]
+  max: [100.0]
+x_density: "uniform"
+correlated: false

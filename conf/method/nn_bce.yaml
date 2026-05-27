@@ -12,9 +12,9 @@ focal_gamma: 2.0
 # Architecture – proportions of input size for each hidden layer.
 # E.g. [1, 2, 0.5] with 4 inputs gives layers of width [4, 8, 2].
 # Each is clamped to [min_hidden_size, max_hidden_size].
-hidden_size_factors: [1.0, 0.75, 0.5]
-min_hidden_size: 5
-max_hidden_size: 1000
+hidden_size_factors: [32,32,32]
+min_hidden_size: 128
+max_hidden_size: 1024
 
 # Validation
 val_size: 10000

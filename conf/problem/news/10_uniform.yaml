@@ -1,12 +1,12 @@
 # Newsvendor with 10 products - medium demand variability, distinct distributions
 _target_: stochopt.problem.newsvendor.NewsvendorProblem
-name: newsvendor10_exp
+name: newsvendor10_uniform
 n_products: 10
 costs: [1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
 prices: [2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0, 2.0]
-demand_dist: "exponential"
+demand_dist: "uniform"
 demand_params:
-  mean: [10.0, 15.0, 11.0, 20.0, 25.0, 30.0, 35.0, 40.0, 45.0, 50.0]
-  std: [5.0, 2.0, 8.0, 4.0, 6.0, 10.0, 12.0, 11.0, 12.0, 8.0]
+  min: [40.0, 65.0, 70.0, 75.0, 50.0, 60.0, 70.0, 55.0, 80.0, 55.0]
+  max: [120.0, 125.0, 150.0, 135.0, 130.0, 140.0, 160.0, 115.0, 160.0, 95.0]
 x_density: "uniform"
 correlated: false

@@ -3,7 +3,7 @@ from typing import Any, Dict, List, Optional, Tuple, cast
 import numpy as np
 import numpy.typing as npt
 import pyomo.environ as pyo
-from scipy.stats import expon, norm
+from scipy.stats import expon, norm, uniform
 
 from stochopt.data.Features import Binary, Categorical
 from stochopt.problem.base import BaseProblem
@@ -35,11 +35,20 @@ class NewsvendorProblem(BaseProblem):
             np.array(prices) if prices is not None else np.zeros(self.n_products)
         )
         self.demand_dist = demand_dist  # "normal", "exponential"
-        self.demand_params = demand_params  # dict with mean, std, etc.
-        if isinstance(self.demand_params["std"], (list, tuple, np.ndarray)):
-            assert len(self.demand_params["std"]) == self.n_products
-        if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray)):
-            assert len(self.demand_params["mean"]) == self.n_products
+        self.demand_params = (
+            demand_params  # dict with mean, std, or min/max depending on distribution
+        )
+        if "std" in self.demand_params:
+            if isinstance(self.demand_params["std"], (list, tuple, np.ndarray)):
+                assert len(self.demand_params["std"]) == self.n_products
+        if "mean" in self.demand_params:
+            if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray)):
+                assert len(self.demand_params["mean"]) == self.n_products
+        if "min" in self.demand_params and "max" in self.demand_params:
+            if isinstance(self.demand_params["min"], (list, tuple, np.ndarray)):
+                assert len(self.demand_params["min"]) == self.n_products
+            if isinstance(self.demand_params["max"], (list, tuple, np.ndarray)):
+                assert len(self.demand_params["max"]) == self.n_products
         self.x_density_type = x_density_type
         self.correlated = correlated
 
@@ -88,13 +97,13 @@ class NewsvendorProblem(BaseProblem):
         samples = []
         for i in range(self.n_products):
             # Handle per-product parameters if list, else assume shared/scalar
-            mean = (
-                self.demand_params["mean"][i]
-                if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
-                else self.demand_params["mean"]
-            )
 
             if self.demand_dist == "normal":
+                mean = (
+                    self.demand_params["mean"][i]
+                    if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
+                    else self.demand_params["mean"]
+                )
                 std = (
                     self.demand_params["std"][i]
                     if isinstance(self.demand_params["std"], (list, tuple, np.ndarray))
@@ -102,7 +111,24 @@ class NewsvendorProblem(BaseProblem):
                 )
                 d = norm.rvs(loc=mean, scale=std, size=n_samples)
             elif self.demand_dist == "exponential":
+                mean = (
+                    self.demand_params["mean"][i]
+                    if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
+                    else self.demand_params["mean"]
+                )
                 d = expon.rvs(scale=mean, size=n_samples)
+            elif self.demand_dist == "uniform":
+                min_val = (
+                    self.demand_params["min"][i]
+                    if isinstance(self.demand_params["min"], (list, tuple, np.ndarray))
+                    else self.demand_params["min"]
+                )
+                max_val = (
+                    self.demand_params["max"][i]
+                    if isinstance(self.demand_params["max"], (list, tuple, np.ndarray))
+                    else self.demand_params["max"]
+                )
+                d = uniform.rvs(loc=min_val, scale=max_val - min_val, size=n_samples)
             else:
                 raise ValueError(f"Unknown distribution: {self.demand_dist}")
             samples.append(d.reshape(n_samples, 1).round())
@@ -144,16 +170,16 @@ class NewsvendorProblem(BaseProblem):
                 # Calculate max based on distribution type
                 max_demand = []
                 for i in range(self.n_products):
-                    mean = (
-                        self.demand_params["mean"][i]
-                        if isinstance(
-                            self.demand_params["mean"],
-                            (list, tuple, np.ndarray),
-                        )
-                        else self.demand_params["mean"]
-                    )
                     if self.demand_dist == "normal":
                         # For normal distribution, use mean + 3*std (covers ~99.7% of values)
+                        mean = (
+                            self.demand_params["mean"][i]
+                            if isinstance(
+                                self.demand_params["mean"],
+                                (list, tuple, np.ndarray),
+                            )
+                            else self.demand_params["mean"]
+                        )
                         std = (
                             self.demand_params["std"][i]
                             if isinstance(
@@ -165,10 +191,36 @@ class NewsvendorProblem(BaseProblem):
                         max_val = mean + 3 * std
                     elif self.demand_dist == "exponential":
                         # For exponential,use mean * 4 (covers >98% of values)
+                        mean = (
+                            self.demand_params["mean"][i]
+                            if isinstance(
+                                self.demand_params["mean"],
+                                (list, tuple, np.ndarray),
+                            )
+                            else self.demand_params["mean"]
+                        )
                         max_val = mean * 4
+                    elif self.demand_dist == "uniform":
+                        min_demand[i] = (
+                            self.demand_params["min"][i]
+                            if isinstance(
+                                self.demand_params["min"],
+                                (list, tuple, np.ndarray),
+                            )
+                            else self.demand_params["min"]
+                        )
+                        max_val = (
+                            self.demand_params["max"][i]
+                            if isinstance(
+                                self.demand_params["max"],
+                                (list, tuple, np.ndarray),
+                            )
+                            else self.demand_params["max"]
+                        )
                     else:
-                        # Fallback: use mean * 2
-                        max_val = mean * 2
+                        raise ValueError(
+                            f"Unknown distribution type: {self.demand_dist}"
+                        )
                     max_demand.append(max_val)
                 max_demand = np.array(max_demand)
 
