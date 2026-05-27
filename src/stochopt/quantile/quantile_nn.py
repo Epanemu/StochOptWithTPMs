@@ -35,7 +35,7 @@ class PinballLoss(nn.Module):
     L_q(y, y_hat) = max(q * (y - y_hat), (q - 1) * (y - y_hat))
     """
 
-    def __init__(self, q: float = 0.95):
+    def __init__(self, q: float = 0.05):
         super().__init__()
         self.q = q
 
@@ -99,7 +99,7 @@ class QuantileNN:
         val_size: int = 10000,
         log_every: int = 10,
         seed: int = 42,
-        quantile: float = 0.95,
+        quantile: float = 0.05,
         folder: str | None = None,
     ) -> "QuantileNN":
         """
@@ -117,7 +117,7 @@ class QuantileNN:
             val_size: Number of samples in the validation set.
             log_every: Interval for logging to MLflow.
             seed: Random seed.
-            quantile: Target quantile to learn (e.g., 0.95 for risk=0.05).
+            quantile: Target quantile to learn (e.g., 0.05 for risk=0.05).
             folder: Folder to save the trained model.
 
         Returns:

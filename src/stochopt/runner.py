@@ -1048,7 +1048,7 @@ def run_experiment(cfg: DictConfig) -> None:
                     val_size=nn_cfg.get("val_size", 10000),
                     log_every=nn_cfg.get("log_every", 10),
                     seed=cfg.seed,
-                    quantile=1 - cfg.risk_level,
+                    quantile=cfg.risk_level,
                     folder=local_run_dir,
                 )
                 tpm_train_duration = time.time() - tpm_start_time
