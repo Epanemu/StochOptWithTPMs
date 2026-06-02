@@ -964,14 +964,15 @@ def run_experiment(cfg: DictConfig) -> None:
             else:
                 mlflow.set_tag("method", cfg.method.name)
             mlflow.set_tag(
-                "n_products", str(cfg.problem.n_products)
+                "dimensions", str(cfg.problem.dim)
             )  # String for categorical grouping
-            mlflow.set_tag("samples.opt", str(cfg.samples.opt))
-            mlflow.set_tag("samples.train", str(cfg.samples.train))
-            mlflow.set_tag("samples.train_decisions", str(cfg.samples.train_decisions))
+            mlflow.set_tag("samples.xi", str(cfg.samples.xi))
+            mlflow.set_tag("samples.xi_validation", str(cfg.samples.xi_validation))
+            mlflow.set_tag("samples.xi_test", str(cfg.samples.xi_test))
+            mlflow.set_tag("samples.x", str(cfg.samples.x))
             mlflow.set_tag("problem.type", cfg.problem.get("name", "unknown"))
-            mlflow.set_tag("problem.distro", cfg.problem.demand_dist)
-            mlflow.set_tag("problem.corr", cfg.problem.correlated)
+            mlflow.set_tag("problem.distribution", cfg.problem.dist.name)
+            mlflow.set_tag("problem.correlated", cfg.problem.dist.correlated)
             mlflow.set_tag("status", "RUNNING")
 
             slurm_job_id = os.environ.get("SLURM_JOB_ID")
@@ -1000,9 +1001,9 @@ def run_experiment(cfg: DictConfig) -> None:
             problem = instantiate(cfg.problem, solver=cfg.solver, _convert_="all")
 
             # 2. Generate Data
-            log.info(f"Generating {cfg.samples.train} training samples...")
+            log.info(f"Generating {cfg.samples.xi} scenarios...")
             train_samples = problem.generate_samples(
-                n_samples=cfg.samples.train,
+                n_samples=cfg.samples.xi,
                 seed=cfg.seed,
             )
 
@@ -1030,7 +1031,7 @@ def run_experiment(cfg: DictConfig) -> None:
                         hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
                         min_hidden_size=nn_cfg.get("min_hidden_size", 5),
                         max_hidden_size=nn_cfg.get("max_hidden_size", 100),
-                        val_size=nn_cfg.get("val_size", 10000),
+                        val_size=cfg.samples.xi_validation,
                         log_every=nn_cfg.get("log_every", 10),
                         seed=cfg.seed,
                         loss_type=nn_cfg.get("loss_type", "bolt"),
@@ -1072,7 +1073,7 @@ def run_experiment(cfg: DictConfig) -> None:
 
                 # Generate a small amount of TPM data just for the DataHandler to grasp bounds/types
                 tpm_data_mock, _ = problem.generate_tpm_data(
-                    n_decisions=cfg.samples.train_decisions,
+                    n_decisions=cfg.samples.x,
                     train_samples=train_samples,
                     seed=cfg.seed,
                 )
@@ -1100,7 +1101,7 @@ def run_experiment(cfg: DictConfig) -> None:
                 # Plot the empirical distribution of the training data
                 _empirical_title = (
                     f"Empirical: {cfg.problem.get('name', 'unknown')}, {tpm_data_mock.shape[1]-1}D | "
-                    f"{cfg.samples.train_decisions} samples (assuming sat=1)"
+                    f"{cfg.samples.x} samples (assuming sat=1)"
                 )
                 _plot_empirical_pairplot(
                     tpm_data_mock, feat_names, data_handler, title=_empirical_title
@@ -1128,7 +1129,7 @@ def run_experiment(cfg: DictConfig) -> None:
                         hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
                         min_hidden_size=nn_cfg.get("min_hidden_size", 5),
                         max_hidden_size=nn_cfg.get("max_hidden_size", 100),
-                        val_size=nn_cfg.get("val_size", 10000),
+                        val_size=cfg.samples.xi_validation,
                         log_every=nn_cfg.get("log_every", 10),
                         seed=cfg.seed,
                         quantile=cfg.risk_level,
@@ -1164,60 +1165,87 @@ def run_experiment(cfg: DictConfig) -> None:
                 tpm_data = None
 
             elif method_type == "tpm":
-                log.info("Generating TPM training data...")
-                tpm_data, feat_names = problem.generate_tpm_data(
-                    n_decisions=cfg.samples.train_decisions,
-                    train_samples=train_samples,
-                    cartesian_product=cfg.samples.get("cartesian_product", False),
-                    seed=cfg.seed,
-                )
+                mode = cfg.get("runner_mode", "all")
+                local_run_dir = HydraConfig.get().runtime.output_dir
+                import pickle
 
-                categ_map = problem.get_categ_map()
-                discrete_features = problem.get_discrete()
+                if mode in ["all", "train"]:
+                    log.info("Generating TPM training data...")
+                    tpm_data, feat_names = problem.generate_tpm_data(
+                        n_decisions=cfg.samples.x,
+                        train_samples=train_samples,
+                        cartesian_product=cfg.samples.get("cartesian_product", False),
+                        seed=cfg.seed,
+                    )
 
-                data_handler = DataHandler(
-                    tpm_data,
-                    y=None,
-                    feature_names=feat_names,
-                    discrete=discrete_features,
-                    categ_map=categ_map,
-                )
+                    categ_map = problem.get_categ_map()
+                    discrete_features = problem.get_discrete()
 
-                # Train TPM
-                log.info("Training TPM...")
-                tpm_start_time = time.time()
-                tpm = train_tpm(cfg, tpm_data, data_handler)
-                tpm_train_duration = time.time() - tpm_start_time
-                mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                    data_handler = DataHandler(
+                        tpm_data,
+                        y=None,
+                        feature_names=feat_names,
+                        discrete=discrete_features,
+                        categ_map=categ_map,
+                    )
 
-                # evaluate prob of training set and log the mean logprob to mlflow
-                log.info("Evaluating TPM on training set...")
-                probs = [tpm.log_probability(row) for row in tpm_data]
-                mlflow.log_metric("tpm_train_mean_logprob", float(np.mean(probs)))
+                    # Train TPM
+                    log.info("Training TPM...")
+                    tpm_start_time = time.time()
+                    tpm = train_tpm(cfg, tpm_data, data_handler)
+                    tpm_train_duration = time.time() - tpm_start_time
+                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
 
-                # visualize the fit
-                _tpm_method = cfg.method.name
-                if _tpm_method == "tree":
-                    _tpm_method = f"tree/{cfg.method.learner}"
-                _problem_name = cfg.problem.get("name", "unknown")
-                _n_products = cfg.problem.get("n_products", "?")
+                    model_path = os.path.join(local_run_dir, f"{cfg.method.name}.pkl")
+                    with open(model_path, "wb") as f:
+                        pickle.dump((tpm, data_handler), f)
+                    log.info(f"Saved trained TPM to {model_path}")
 
-                # 1. Empirical Pairplot
-                _empirical_title = (
-                    f"Empirical: {_problem_name}, {tpm_data.shape[1]-1}D | "
-                    f"{cfg.samples.train_decisions} samples (assuming sat=1)"
-                )
-                _plot_empirical_pairplot(
-                    tpm_data, feat_names, data_handler, title=_empirical_title
-                )
+                    # evaluate prob of training set and log the mean logprob to mlflow
+                    log.info("Evaluating TPM on training set...")
+                    probs = [tpm.log_probability(row) for row in tpm_data]
+                    mlflow.log_metric("tpm_train_mean_logprob", float(np.mean(probs)))
 
-                # 2. TPM Modeled Pairplot
-                _tpm_title = (
-                    f"TPM: {_tpm_method} | "
-                    f"{_problem_name}, {_n_products}d | "
-                    f"n_train={cfg.samples.train_decisions} (sat=1)"
-                )
-                _plot_tpm_pairplot(data_handler, tpm, title=_tpm_title)
+                    # visualize the fit
+                    _tpm_method = cfg.method.name
+                    if _tpm_method == "tree":
+                        _tpm_method = f"tree/{cfg.method.learner}"
+                    _problem_name = cfg.problem.get("name", "unknown")
+                    _n_products = cfg.problem.get("n_products", "?")
+
+                    # 1. Empirical Pairplot
+                    _empirical_title = (
+                        f"Empirical: {_problem_name}, {tpm_data.shape[1]-1}D | "
+                        f"{cfg.samples.x} samples (assuming sat=1)"
+                    )
+                    _plot_empirical_pairplot(
+                        tpm_data, feat_names, data_handler, title=_empirical_title
+                    )
+
+                    # 2. TPM Modeled Pairplot
+                    _tpm_title = (
+                        f"TPM: {_tpm_method} | "
+                        f"{_problem_name}, {_n_products}d | "
+                        f"n_train={cfg.samples.x} (sat=1)"
+                    )
+                    _plot_tpm_pairplot(data_handler, tpm, title=_tpm_title)
+
+                if mode == "train":
+                    log.info("Runner mode is 'train'. Exiting before solve phase.")
+                    return
+
+                if mode == "solve":
+                    model_dir = cfg.get("model_dir")
+                    if not model_dir:
+                        raise ValueError(
+                            "Must provide model_dir when runner_mode='solve'"
+                        )
+                    model_path = os.path.join(model_dir, "trained_tpm.pkl")
+                    log.info(f"Loading trained TPM from {model_path}...")
+                    with open(model_path, "rb") as f:
+                        tpm, data_handler = pickle.load(f)
+                    tpm_train_duration = 0.0
+                    tpm_data = None
 
             else:
                 tpm = None
@@ -1231,7 +1259,7 @@ def run_experiment(cfg: DictConfig) -> None:
             # For robust/sample average, we need scenarios
             if cfg.method.name in ["robust", "sample_average"]:
                 # Use a subset of training samples
-                opt_samples = train_samples[: cfg.samples.opt]
+                opt_samples = train_samples[: cfg.samples.xi]
             else:
                 opt_samples = None
 
@@ -1306,7 +1334,7 @@ def run_experiment(cfg: DictConfig) -> None:
                 mlflow.set_tag(
                     "error_message", f"Solver returned status: {solver_status}"
                 )
-                if result.get("objective") is None:
+                if result["objective"] is None:
                     return
 
             # 5. Evaluation / Verification
@@ -1326,19 +1354,17 @@ def run_experiment(cfg: DictConfig) -> None:
                 mlflow.set_tag("error_message", str(e))
                 return
 
-            # Validation on new samples
-            val_seed = cfg.seed + 1  # Different seed
-            n_val = cfg.samples.get("validation", cfg.samples.test)
-            validation_samples = problem.generate_samples(
-                n_samples=n_val, seed=val_seed
-            )
+            # test on new samples
+            test_seed = cfg.seed + 1000  # Different seed
+            n_test = cfg.samples.xi_test
+            test_samples = problem.generate_samples(n_samples=n_test, seed=test_seed)
 
-            val_satisfied = problem.check_satisfaction(x_sol, validation_samples)
-            val_prob_satisfied = np.mean(val_satisfied)
+            test_satisfied = problem.check_satisfaction(x_sol, test_samples)
+            test_prob_satisfied = np.mean(test_satisfied)
 
-            log.info(f"Validation Satisfaction Probability: {val_prob_satisfied}")
-            mlflow.log_metric("val_prob_satisfied", val_prob_satisfied)
-            mlflow.log_metric("val_violation_prob", 1 - val_prob_satisfied)
+            log.info(f"Test Satisfaction Probability: {test_prob_satisfied}")
+            mlflow.log_metric("test_prob_satisfied", test_prob_satisfied)
+            mlflow.log_metric("test_violation_prob", 1 - test_prob_satisfied)
 
             try:
                 exact_prob = problem.get_exact_prob_satisfied(x_sol)
