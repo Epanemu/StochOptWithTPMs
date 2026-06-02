@@ -1011,32 +1011,56 @@ def run_experiment(cfg: DictConfig) -> None:
 
             if method_type == "nn_pm":
                 # ----- Neural Network PM (not a classical TPM) -----
-                log.info("Training NNPM...")
-                nn_cfg = cfg.method
-
-                # get working directory of this hydra run
+                mode = cfg.get("runner_mode", "all")
                 local_run_dir = HydraConfig.get().runtime.output_dir
+                import torch
 
-                nnpm = NNPM()
-                tpm_start_time = time.time()
-                nnpm.train(
-                    problem,
-                    train_samples,
-                    epochs=nn_cfg.epochs,
-                    batch_size=nn_cfg.batch_size,
-                    lr=nn_cfg.lr,
-                    hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
-                    min_hidden_size=nn_cfg.get("min_hidden_size", 5),
-                    max_hidden_size=nn_cfg.get("max_hidden_size", 100),
-                    val_size=nn_cfg.get("val_size", 10000),
-                    log_every=nn_cfg.get("log_every", 10),
-                    seed=cfg.seed,
-                    loss_type=nn_cfg.get("loss_type", "bolt"),
-                    focal_gamma=nn_cfg.get("focal_gamma", 2.0),
-                    folder=local_run_dir,
-                )
-                tpm_train_duration = time.time() - tpm_start_time
-                mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                if mode in ["all", "train"]:
+                    log.info("Training NNPM...")
+                    nn_cfg = cfg.method
+
+                    nnpm = NNPM()
+                    tpm_start_time = time.time()
+                    nnpm.train(
+                        problem,
+                        train_samples,
+                        epochs=nn_cfg.epochs,
+                        batch_size=nn_cfg.batch_size,
+                        lr=nn_cfg.lr,
+                        hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
+                        min_hidden_size=nn_cfg.get("min_hidden_size", 5),
+                        max_hidden_size=nn_cfg.get("max_hidden_size", 100),
+                        val_size=nn_cfg.get("val_size", 10000),
+                        log_every=nn_cfg.get("log_every", 10),
+                        seed=cfg.seed,
+                        loss_type=nn_cfg.get("loss_type", "bolt"),
+                        focal_gamma=nn_cfg.get("focal_gamma", 2.0),
+                        folder=local_run_dir,
+                    )
+                    tpm_train_duration = time.time() - tpm_start_time
+                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+
+                    model_path = os.path.join(local_run_dir, "trained_nnpm.pt")
+                    torch.save(nnpm, model_path)
+                    log.info(f"Saved trained NNPM to {model_path}")
+
+                if mode == "train":
+                    log.info("Runner mode is 'train'. Exiting before solve phase.")
+                    return
+
+                if mode == "solve":
+                    model_dir = cfg.get("model_dir")
+                    if not model_dir:
+                        raise ValueError(
+                            "Must provide model_dir when runner_mode='solve'"
+                        )
+                    model_path = os.path.join(model_dir, "trained_nnpm.pt")
+                    log.info(f"Loading trained NNPM from {model_path}...")
+                    nnpm = torch.load(model_path, map_location="cpu")
+                    nnpm.device = torch.device("cpu")
+                    if nnpm.model is not None:
+                        nnpm.model.to("cpu")
+                    tpm_train_duration = 0.0
 
                 tpm = None
 
@@ -1083,32 +1107,57 @@ def run_experiment(cfg: DictConfig) -> None:
                 )
 
             elif method_type == "quantile_nn":
-                log.info("Training QuantileNN...")
+                mode = cfg.get("runner_mode", "all")
+                local_run_dir = HydraConfig.get().runtime.output_dir
+                import torch
+
                 from stochopt.quantile.quantile_nn import QuantileNN
 
-                nn_cfg = cfg.method
+                if mode in ["all", "train"]:
+                    log.info("Training QuantileNN...")
+                    nn_cfg = cfg.method
 
-                local_run_dir = HydraConfig.get().runtime.output_dir
+                    quantilenn = QuantileNN()
+                    tpm_start_time = time.time()
+                    quantilenn.train(
+                        problem,
+                        train_samples,
+                        epochs=nn_cfg.get("epochs", 1000),
+                        batch_size=nn_cfg.get("batch_size", 256),
+                        lr=nn_cfg.get("lr", 1e-3),
+                        hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
+                        min_hidden_size=nn_cfg.get("min_hidden_size", 5),
+                        max_hidden_size=nn_cfg.get("max_hidden_size", 100),
+                        val_size=nn_cfg.get("val_size", 10000),
+                        log_every=nn_cfg.get("log_every", 10),
+                        seed=cfg.seed,
+                        quantile=cfg.risk_level,
+                        folder=local_run_dir,
+                    )
+                    tpm_train_duration = time.time() - tpm_start_time
+                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
 
-                quantilenn = QuantileNN()
-                tpm_start_time = time.time()
-                quantilenn.train(
-                    problem,
-                    train_samples,
-                    epochs=nn_cfg.get("epochs", 1000),
-                    batch_size=nn_cfg.get("batch_size", 256),
-                    lr=nn_cfg.get("lr", 1e-3),
-                    hidden_size_factors=nn_cfg.get("hidden_size_factors", None),
-                    min_hidden_size=nn_cfg.get("min_hidden_size", 5),
-                    max_hidden_size=nn_cfg.get("max_hidden_size", 100),
-                    val_size=nn_cfg.get("val_size", 10000),
-                    log_every=nn_cfg.get("log_every", 10),
-                    seed=cfg.seed,
-                    quantile=cfg.risk_level,
-                    folder=local_run_dir,
-                )
-                tpm_train_duration = time.time() - tpm_start_time
-                mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                    model_path = os.path.join(local_run_dir, "trained_qnn.pt")
+                    torch.save(quantilenn, model_path)
+                    log.info(f"Saved trained QuantileNN to {model_path}")
+
+                if mode == "train":
+                    log.info("Runner mode is 'train'. Exiting before solve phase.")
+                    return
+
+                if mode == "solve":
+                    model_dir = cfg.get("model_dir")
+                    if not model_dir:
+                        raise ValueError(
+                            "Must provide model_dir when runner_mode='solve'"
+                        )
+                    model_path = os.path.join(model_dir, "trained_qnn.pt")
+                    log.info(f"Loading trained QuantileNN from {model_path}...")
+                    quantilenn = torch.load(model_path, map_location="cpu")
+                    quantilenn.device = torch.device("cpu")
+                    if quantilenn.model is not None:
+                        quantilenn.model.to("cpu")
+                    tpm_train_duration = 0.0
 
                 tpm = None
                 data_handler = None
