@@ -1,0 +1,6 @@
+# @package problem.dist
+name: uniform
+params:
+  min: 0.0
+  max: 100.0
+correlated: false

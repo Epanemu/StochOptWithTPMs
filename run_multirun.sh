@@ -19,15 +19,15 @@ echo ""
 # We need to run three separate multiruns to ensure samples.train equals samples.opt
 
 # Run 1: opt=train=100
-echo "Running experiments with 100 samples..."
-python main.py \
-  --config-name=multirun_config \
-  --multirun \
-  hydra/launcher=basic \
-  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
-  samples.opt=100 \
-  samples.train=100 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
+# echo "Running experiments with 100 samples..."
+# python main.py \
+#   --config-name=multirun_config \
+#   --multirun \
+#   hydra/launcher=basic \
+#   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
+#   samples.opt=100 \
+#   samples.train=100 \
+#   problem=newsvendor problem/newsvendor/dim=dim_1,dim_2,dim_4,dim_5,dim_10,dim_50,dim_100 problem/newsvendor/dist=norm,exp,corr
 
 # Run 2: opt=train=1000
 echo "Running experiments with 1000 samples..."
@@ -35,21 +35,22 @@ python main.py \
   --config-name=multirun_config \
   --multirun \
   hydra/launcher=basic \
-  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
+  method=robust,sample_average,nn_brier,nn_bce,quantile_nn \
   samples.opt=1000 \
   samples.train=1000 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
+  samples.train_decisions=10000000 \
+  problem=newsvendor problem/newsvendor/dim=dim_1,dim_2,dim_4,dim_10 problem/newsvendor/distribution=norm,exp,uniform,corr
 
 # Run 3: opt=train=10000
-echo "Running experiments with 10000 samples..."
-python main.py \
-  --config-name=multirun_config \
-  --multirun \
-  hydra/launcher=basic \
-  method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
-  samples.opt=10000 \
-  samples.train=10000 \
-  problem=news/1_norm,news/2_norm,news/2_exp,news/4_norm,news/4_exp,news/4_corr,news/5_norm,news/10_norm,news/10_exp,news/10_corr,news/50_norm,news/100_norm
+# echo "Running experiments with 10000 samples..."
+# python main.py \
+#   --config-name=multirun_config \
+#   --multirun \
+#   hydra/launcher=basic \
+#   method=tpm_spn,tpm_cnet,tpm_tree_cnet,tpm_tree_greedy,robust,sample_average \
+#   samples.opt=10000 \
+#   samples.train=10000 \
+#   problem=newsvendor problem/newsvendor/dim=dim_1,dim_2,dim_4,dim_5,dim_10,dim_50,dim_100 problem/newsvendor/dist=norm,exp,corr
 
 echo ""
 echo "All experiments completed!"

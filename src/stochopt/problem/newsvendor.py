@@ -31,9 +31,13 @@ class NewsvendorProblem(BaseProblem):
         super().__init__(solver)
         self.n_products = n_products
         self.costs = np.array(costs) if costs is not None else np.ones(self.n_products)
+        if self.costs.ndim == 0:
+            self.costs = np.full(self.n_products, self.costs)
         self.prices = (
             np.array(prices) if prices is not None else np.zeros(self.n_products)
         )
+        if self.prices.ndim == 0:
+            self.prices = np.full(self.n_products, self.prices)
         self.demand_dist = demand_dist  # "normal", "exponential"
         self.demand_params = (
             demand_params  # dict with mean, std, or min/max depending on distribution

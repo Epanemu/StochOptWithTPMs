@@ -1,6 +1,8 @@
 defaults:
-  - problem: news/1_norm
+  - problem: newsvendor
   - method: robust
+  - problem/newsvendor/distribution: norm
+  - problem/newsvendor/dim: dim_1
   - _self_
 
 seed: 42

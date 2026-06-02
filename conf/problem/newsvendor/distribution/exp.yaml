@@ -1,0 +1,5 @@
+# @package problem.dist
+name: exponential
+params:
+  mean: 10.0
+correlated: false

@@ -1,0 +1,14 @@
+defaults:
+  - /problem/newsvendor/dist: norm
+  - /problem/newsvendor/dim: dim_4
+  - _self_
+
+_target_: stochopt.problem.newsvendor.NewsvendorProblem
+name: newsvendor${problem.dim}_${problem.dist.name}
+n_products: ${problem.dim}
+costs: 1.0
+prices: 2.0
+demand_dist: ${problem.dist.name}
+demand_params: ${problem.dist.params}
+x_density: "uniform"
+correlated: ${problem.dist.correlated}
