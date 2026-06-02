@@ -39,6 +39,7 @@ def small_config():
             "problem": {
                 "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
                 "dim": 1,
+                "n_products": 1,
                 "costs": 1.0,
                 "prices": 2.0,
                 "demand_dist": "normal",
@@ -60,6 +61,7 @@ def newsvendor_config():
         {
             "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
             "dim": 2,
+            "n_products": 2,
             "costs": [1.0, 1.5],
             "prices": [2.0, 3.0],
             "demand_dist": "normal",
