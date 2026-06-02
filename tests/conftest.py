@@ -43,6 +43,7 @@ def small_config():
                 "costs": 1.0,
                 "prices": 2.0,
                 "demand_dist": "normal",
+                "dist": {"name": "exponential", "correlated": False},
                 "demand_params": {"mean": [100.0], "std": [20.0]},
                 "density_type": "uniform",
                 "correlated": False,
