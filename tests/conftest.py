@@ -27,11 +27,10 @@ def small_config():
             "risk_level": 0.05,
             "solver": "appsi_highs",  # HiGHS solver
             "samples": {
-                "train": 10,
-                "opt": 5,
-                "test": 20,
-                "validation": 15,
-                "train_decisions": 10,
+                "xi": 10,
+                "xi_test": 20,
+                "xi_validation": 15,
+                "x": 10,
             },
             "mlflow": {
                 "tracking_uri": "sqlite:///test_mlflow.db",
@@ -39,9 +38,9 @@ def small_config():
             },
             "problem": {
                 "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
-                "n_products": 1,
-                "costs": [1.0],
-                "prices": [2.0],
+                "dim": 1,
+                "costs": 1.0,
+                "prices": 2.0,
                 "demand_dist": "normal",
                 "demand_params": {"mean": [100.0], "std": [20.0]},
                 "density_type": "uniform",
@@ -60,12 +59,13 @@ def newsvendor_config():
     return OmegaConf.create(
         {
             "_target_": "stochopt.problem.newsvendor.NewsvendorProblem",
-            "n_products": 2,
+            "dim": 2,
             "costs": [1.0, 1.5],
             "prices": [2.0, 3.0],
             "demand_dist": "normal",
             "demand_params": {"mean": [50.0, 75.0], "std": [10.0, 15.0]},
             "density_type": "uniform",
+            "correlated": False,
         }
     )
 
