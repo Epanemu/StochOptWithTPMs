@@ -5,4 +5,4 @@ discrete: true
 # CNet Learner params
 min_instances_slice: 50
 max_depth: 10
-n_bins: 5
+n_bins: 20 #5
