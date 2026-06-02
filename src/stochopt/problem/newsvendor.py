@@ -253,6 +253,59 @@ class NewsvendorProblem(BaseProblem):
         satisfied = np.array(np.all(x >= xi, axis=1, keepdims=True), dtype=bool)
         return satisfied
 
+    def get_exact_prob_satisfied(self, x_sol: npt.NDArray[np.float64]) -> float:
+        """
+        Compute the exact probability of satisfaction for the given decision variables.
+        """
+        if self.correlated:
+            raise NotImplementedError(
+                "Exact probability not implemented for correlated demands."
+            )
+
+        prob = 1.0
+        for i in range(self.n_products):
+            # The demand is rounded in generate_samples: round(D)
+            # We want P(round(D) <= x_sol[i])
+            # Since x_sol[i] is integer, this is P(D < x_sol[i] + 0.5)
+            x_val = x_sol[i] + 0.5
+
+            if self.demand_dist == "normal":
+                mean = (
+                    self.demand_params["mean"][i]
+                    if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
+                    else self.demand_params["mean"]
+                )
+                std = (
+                    self.demand_params["std"][i]
+                    if isinstance(self.demand_params["std"], (list, tuple, np.ndarray))
+                    else self.demand_params["std"]
+                )
+                p_i = norm.cdf(x_val, loc=mean, scale=std)
+            elif self.demand_dist == "exponential":
+                mean = (
+                    self.demand_params["mean"][i]
+                    if isinstance(self.demand_params["mean"], (list, tuple, np.ndarray))
+                    else self.demand_params["mean"]
+                )
+                p_i = expon.cdf(x_val, scale=mean)
+            elif self.demand_dist == "uniform":
+                min_val = (
+                    self.demand_params["min"][i]
+                    if isinstance(self.demand_params["min"], (list, tuple, np.ndarray))
+                    else self.demand_params["min"]
+                )
+                max_val = (
+                    self.demand_params["max"][i]
+                    if isinstance(self.demand_params["max"], (list, tuple, np.ndarray))
+                    else self.demand_params["max"]
+                )
+                p_i = uniform.cdf(x_val, loc=min_val, scale=max_val - min_val)
+            else:
+                raise ValueError(f"Unknown distribution: {self.demand_dist}")
+            prob *= p_i
+
+        return float(prob)
+
     def compute_margin(
         self, xi: npt.NDArray[np.float64], x: npt.NDArray[np.float64]
     ) -> npt.NDArray[np.float64]:

@@ -146,6 +146,13 @@ class BaseProblem(ABC):
         x_expanded = np.tile(x_sol, (n_scenarios, 1))
         return self.compute_satisfaction(scenarios, x_expanded).flatten()
 
+    def get_exact_prob_satisfied(self, x_sol: npt.NDArray[np.float64]) -> float:
+        """
+        Compute exact probability of satisfaction if available.
+        Otherwise raises NotImplementedError.
+        """
+        raise NotImplementedError("Exact probability not implemented for this problem.")
+
     @abstractmethod
     def get_solution(self) -> npt.NDArray[np.float64]:
         """

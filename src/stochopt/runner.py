@@ -1291,6 +1291,14 @@ def run_experiment(cfg: DictConfig) -> None:
             mlflow.log_metric("val_prob_satisfied", val_prob_satisfied)
             mlflow.log_metric("val_violation_prob", 1 - val_prob_satisfied)
 
+            try:
+                exact_prob = problem.get_exact_prob_satisfied(x_sol)
+                log.info(f"Exact Satisfaction Probability: {exact_prob}")
+                mlflow.log_metric("exact_prob_satisfied", exact_prob)
+                mlflow.log_metric("exact_violation_prob", 1 - exact_prob)
+            except NotImplementedError:
+                pass
+
             # Training set violation (in-sample)
             train_satisfied = problem.check_satisfaction(x_sol, train_samples)
             train_prob_satisfied = np.mean(train_satisfied)
