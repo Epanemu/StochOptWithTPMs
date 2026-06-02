@@ -1,19 +1,18 @@
 name: quantile_nn
 type: quantile_nn
 # Training params
-epochs: 10000
+epochs: 100000
 batch_size: 4096
 lr: 0.001
 
 # Architecture – proportions of input size for each hidden layer.
 # E.g. [1, 2, 0.5] with 4 inputs gives layers of width [4, 8, 2].
 # Each is clamped to [min_hidden_size, max_hidden_size].
-hidden_size_factors: [32, 32, 32]
-min_hidden_size: 128
-max_hidden_size: 1024
+hidden_size_factors: [32, 32, 16, 16, 16]
+min_hidden_size: 32
+max_hidden_size: 512
 
 # Validation
-val_size: 10000
 log_every: 10
 
 hydra:

@@ -11,11 +11,10 @@ solver: gurobi
 time_limit: 36000 # 10 hours in seconds
 
 samples:
-  opt: 100
-  train: 1000
-  validation: 5000
-  test: 10000
-  train_decisions: 10000000
+  xi: 100000
+  xi_validation: 50000
+  xi_test: 100000
+  x: 10000000
   cartesian_product: false
 
 mlflow:

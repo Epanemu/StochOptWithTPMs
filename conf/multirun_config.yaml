@@ -22,5 +22,5 @@ defaults:
 # Override the sweep directory for better organization
 hydra:
   sweep:
-    dir: multirun/newsvendor_benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}
-    subdir: ${method.name}_n${problem.n_products}_s${samples.opt}
+    dir: multirun/newsvendor_benchmark/${now:%Y-%m-%d}/${now:%H-%M-%S}/${problem.dist.name}_${problem.dim}/${method.name}/
+    subdir: ${seed}
