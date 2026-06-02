@@ -283,7 +283,7 @@ class BaseProblem(ABC):
                     f"Time limit not set! Not implemented for solver {self.solver_name}"
                 )
 
-        result = solver.solve(self.model, tee=False)
+        result = solver.solve(self.model, tee=True)
 
         status = str(result.solver.termination_condition)
 
