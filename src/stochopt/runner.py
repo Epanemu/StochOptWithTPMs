@@ -236,11 +236,37 @@ def _get_tpm_grid_distribution(
         feature_vals.append(vals)
         feature_bins.append(bins)
 
+    _MAX_GRID_POINTS = 1_000_000
+
     # Calculate grid size
     grid_shape = [len(v) for v in feature_vals]
-    total_points = np.prod(grid_shape)
-    grid_size_str = f"joint grid of size {total_points} (active vars: {active_cols})"
-    log.info(f"Evaluating TPM on {grid_size_str}")
+    total_points = int(np.prod(grid_shape))
+
+    if total_points > _MAX_GRID_POINTS:
+        n = len(active_cols)
+        scale = (_MAX_GRID_POINTS / total_points) ** (1.0 / n)
+        thinned_vals = []
+        thinned_bins = []
+        for vals, bins in zip(feature_vals, feature_bins):
+            new_size = max(2, round(len(vals) * scale))
+            if new_size < len(vals):
+                idx = np.round(np.linspace(0, len(vals) - 1, new_size)).astype(int)
+                vals = vals[idx]
+                bins = np.linspace(bins[0], bins[-1], new_size + 1)
+            thinned_vals.append(vals)
+            thinned_bins.append(bins)
+        feature_vals = thinned_vals
+        feature_bins = thinned_bins
+        grid_shape = [len(v) for v in feature_vals]
+        total_points = int(np.prod(grid_shape))
+        log.warning(
+            f"Grid too large — subsampled to {total_points} points "
+            f"across {n} dims (scale {scale:.2f}/dim)"
+        )
+
+    log.info(
+        f"Evaluating TPM on joint grid of size {total_points} (active vars: {active_cols})"
+    )
 
     # Generate full grid
     # Using np.indices and broadcasting might be faster for large grids?
