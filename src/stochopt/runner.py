@@ -1011,7 +1011,12 @@ def run_experiment(cfg: DictConfig) -> None:
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
     mlflow.set_experiment(cfg.mlflow.experiment_name)
 
-    local_run_dir = HydraConfig.get().runtime.output_dir
+    try:
+        local_run_dir = HydraConfig.get().runtime.output_dir
+    except Exception:
+        import tempfile
+
+        local_run_dir = tempfile.mkdtemp()
     metrics: dict = {}
 
     with mlflow.start_run():
