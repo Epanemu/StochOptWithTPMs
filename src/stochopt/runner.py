@@ -33,6 +33,24 @@ except ImportError:
 log = logging.getLogger(__name__)
 
 
+def _safe_mlflow(fn, *args, **kwargs):
+    try:
+        return fn(*args, **kwargs)
+    except Exception as exc:
+        log.warning(f"MLflow call failed ({fn.__name__}): {exc}")
+        return None
+
+
+def _write_metrics(metrics: dict, folder: str) -> None:
+    try:
+        path = os.path.join(folder, "metrics.txt")
+        with open(path, "w") as f:
+            for k, v in metrics.items():
+                f.write(f"{k}: {v}\n")
+    except Exception as exc:
+        log.warning(f"Failed to write metrics.txt: {exc}")
+
+
 def train_tpm(cfg: DictConfig, data: DataLike, data_handler: DataHandler) -> TPM:
     """
     Train a TPM (SPN, CNet, or Tree) on the provided data.
@@ -176,7 +194,9 @@ def _plot_empirical_pairplot(
 
     fig.suptitle(title, fontsize=18)
     fig.tight_layout()
-    mlflow.log_figure(fig, "tpm_empirical_pairplot.png", save_kwargs={"dpi": dpi})
+    _safe_mlflow(
+        mlflow.log_figure, fig, "tpm_empirical_pairplot.png", save_kwargs={"dpi": dpi}
+    )
     plt.close(fig)
 
 
@@ -409,7 +429,9 @@ def _plot_tpm_pairplot(
         fig.colorbar(im, ax=axes, location="right", format="%.2g", shrink=0.8)
 
     fig.suptitle(title, fontsize=18)
-    mlflow.log_figure(fig, "tpm_modeled_pairplot.png", save_kwargs={"dpi": dpi})
+    _safe_mlflow(
+        mlflow.log_figure, fig, "tpm_modeled_pairplot.png", save_kwargs={"dpi": dpi}
+    )
     plt.close(fig)
 
 
@@ -619,8 +641,11 @@ def _plot_marginal_conditional_pairplot(
             fig.colorbar(im, ax=axes, location="right", format="%.2g", shrink=0.8)
 
         fig.suptitle(f"{title_prefix} {plot_type}", fontsize=18)
-        mlflow.log_figure(
-            fig, f"tpm_marginal_{plot_type}.png", save_kwargs={"dpi": dpi}
+        _safe_mlflow(
+            mlflow.log_figure,
+            fig,
+            f"tpm_marginal_{plot_type}.png",
+            save_kwargs={"dpi": dpi},
         )
         plt.close(fig)
 
@@ -799,7 +824,9 @@ def _plot_nnpm_conditional_pairplot(
         fig.colorbar(im, ax=axes, location="right", format="%.2g", shrink=0.8)
 
     fig.suptitle(title, fontsize=18)
-    mlflow.log_figure(fig, "nn_conditional_pairplot.png", save_kwargs={"dpi": dpi})
+    _safe_mlflow(
+        mlflow.log_figure, fig, "nn_conditional_pairplot.png", save_kwargs={"dpi": dpi}
+    )
     plt.close(fig)
 
 
@@ -851,7 +878,9 @@ def _plot_nnpm_1d_interpolation(
     ax.grid(True, alpha=0.3)
 
     fig.tight_layout()
-    mlflow.log_figure(fig, "nn_1d_interpolation.png", save_kwargs={"dpi": 100})
+    _safe_mlflow(
+        mlflow.log_figure, fig, "nn_1d_interpolation.png", save_kwargs={"dpi": 100}
+    )
     plt.close(fig)
 
 
@@ -956,27 +985,37 @@ def run_experiment(cfg: DictConfig) -> None:
     mlflow.set_tracking_uri(cfg.mlflow.tracking_uri)
     mlflow.set_experiment(cfg.mlflow.experiment_name)
 
+    local_run_dir = HydraConfig.get().runtime.output_dir
+    metrics: dict = {}
+
     with mlflow.start_run():
         try:
-            mlflow.set_tag("mlflow.runName", cfg.mlflow.experiment_name)
+            _safe_mlflow(mlflow.set_tag, "mlflow.runName", cfg.mlflow.experiment_name)
             if cfg.method.name == "tree":
-                mlflow.set_tag("method", f"tree_{cfg.method.learner}")
+                _safe_mlflow(mlflow.set_tag, "method", f"tree_{cfg.method.learner}")
             else:
-                mlflow.set_tag("method", cfg.method.name)
-            mlflow.set_tag(
-                "dimensions", str(cfg.problem.dim)
+                _safe_mlflow(mlflow.set_tag, "method", cfg.method.name)
+            _safe_mlflow(
+                mlflow.set_tag, "dimensions", str(cfg.problem.dim)
             )  # String for categorical grouping
-            mlflow.set_tag("samples.xi", str(cfg.samples.xi))
-            mlflow.set_tag("samples.xi_validation", str(cfg.samples.xi_validation))
-            mlflow.set_tag("samples.xi_test", str(cfg.samples.xi_test))
-            mlflow.set_tag("samples.x", str(cfg.samples.x))
-            mlflow.set_tag("problem.type", cfg.problem.get("name", "unknown"))
-            mlflow.set_tag("problem.distribution", cfg.problem.dist.name)
-            mlflow.set_tag("problem.correlated", cfg.problem.dist.correlated)
-            mlflow.set_tag("status", "RUNNING")
+            _safe_mlflow(mlflow.set_tag, "samples.xi", str(cfg.samples.xi))
+            _safe_mlflow(
+                mlflow.set_tag, "samples.xi_validation", str(cfg.samples.xi_validation)
+            )
+            _safe_mlflow(mlflow.set_tag, "samples.xi_test", str(cfg.samples.xi_test))
+            _safe_mlflow(mlflow.set_tag, "samples.x", str(cfg.samples.x))
+            _safe_mlflow(
+                mlflow.set_tag, "problem.type", cfg.problem.get("name", "unknown")
+            )
+            _safe_mlflow(mlflow.set_tag, "problem.distribution", cfg.problem.dist.name)
+            _safe_mlflow(
+                mlflow.set_tag, "problem.correlated", cfg.problem.dist.correlated
+            )
+            _safe_mlflow(mlflow.set_tag, "status", "RUNNING")
+            _safe_mlflow(mlflow.set_tag, "run_folder", local_run_dir)
 
             slurm_job_id = os.environ.get("SLURM_JOB_ID")
-            mlflow.set_tag("slurm_job_id", slurm_job_id)
+            _safe_mlflow(mlflow.set_tag, "slurm_job_id", slurm_job_id)
 
             slurm_array_job_id = os.environ.get("SLURM_ARRAY_JOB_ID")
             slurm_array_task_id = os.environ.get("SLURM_ARRAY_TASK_ID")
@@ -985,16 +1024,18 @@ def run_experiment(cfg: DictConfig) -> None:
                 # mlflow.set_tag("slurm_array_task_id", slurm_array_task_id)
             else:
                 slurm_id = str(slurm_job_id)
-            mlflow.set_tag("slurm_id", slurm_id)  # combined, for quick lookup
+            _safe_mlflow(
+                mlflow.set_tag, "slurm_id", slurm_id
+            )  # combined, for quick lookup
 
             # Add date tag for grouping batches of experiments
             import datetime
 
             today = datetime.datetime.now().strftime("%Y-%m-%d")
-            mlflow.set_tag("benchmark_date", today)
+            _safe_mlflow(mlflow.set_tag, "benchmark_date", today)
 
             # Log all parameters
-            mlflow.log_params(dict(cfg))
+            _safe_mlflow(mlflow.log_params, dict(cfg))
 
             # 1. Instantiate Problem
             log.info(f"Instantiating problem: {cfg.problem._target_}")
@@ -1013,7 +1054,6 @@ def run_experiment(cfg: DictConfig) -> None:
             if method_type == "nn_pm":
                 # ----- Neural Network PM (not a classical TPM) -----
                 mode = cfg.get("runner_mode", "all")
-                local_run_dir = HydraConfig.get().runtime.output_dir
                 import torch
 
                 if mode in ["all", "train"]:
@@ -1039,7 +1079,10 @@ def run_experiment(cfg: DictConfig) -> None:
                         folder=local_run_dir,
                     )
                     tpm_train_duration = time.time() - tpm_start_time
-                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                    metrics["tpm_train_duration"] = tpm_train_duration
+                    _safe_mlflow(
+                        mlflow.log_metric, "tpm_train_duration", tpm_train_duration
+                    )
 
                     model_path = os.path.join(local_run_dir, "trained_nnpm.pt")
                     torch.save(nnpm, model_path)
@@ -1109,7 +1152,6 @@ def run_experiment(cfg: DictConfig) -> None:
 
             elif method_type == "quantile_nn":
                 mode = cfg.get("runner_mode", "all")
-                local_run_dir = HydraConfig.get().runtime.output_dir
                 import torch
 
                 from stochopt.quantile.quantile_nn import QuantileNN
@@ -1136,7 +1178,10 @@ def run_experiment(cfg: DictConfig) -> None:
                         folder=local_run_dir,
                     )
                     tpm_train_duration = time.time() - tpm_start_time
-                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                    metrics["tpm_train_duration"] = tpm_train_duration
+                    _safe_mlflow(
+                        mlflow.log_metric, "tpm_train_duration", tpm_train_duration
+                    )
 
                     model_path = os.path.join(local_run_dir, "trained_qnn.pt")
                     torch.save(quantilenn, model_path)
@@ -1166,7 +1211,6 @@ def run_experiment(cfg: DictConfig) -> None:
 
             elif method_type == "tpm":
                 mode = cfg.get("runner_mode", "all")
-                local_run_dir = HydraConfig.get().runtime.output_dir
                 import pickle
 
                 if mode in ["all", "train"]:
@@ -1194,7 +1238,10 @@ def run_experiment(cfg: DictConfig) -> None:
                     tpm_start_time = time.time()
                     tpm = train_tpm(cfg, tpm_data, data_handler)
                     tpm_train_duration = time.time() - tpm_start_time
-                    mlflow.log_metric("tpm_train_duration", tpm_train_duration)
+                    metrics["tpm_train_duration"] = tpm_train_duration
+                    _safe_mlflow(
+                        mlflow.log_metric, "tpm_train_duration", tpm_train_duration
+                    )
 
                     model_path = os.path.join(local_run_dir, f"{cfg.method.name}.pkl")
                     with open(model_path, "wb") as f:
@@ -1204,7 +1251,13 @@ def run_experiment(cfg: DictConfig) -> None:
                     # evaluate prob of training set and log the mean logprob to mlflow
                     log.info("Evaluating TPM on training set...")
                     probs = [tpm.log_probability(row) for row in tpm_data]
-                    mlflow.log_metric("tpm_train_mean_logprob", float(np.mean(probs)))
+                    tpm_train_mean_logprob = float(np.mean(probs))
+                    metrics["tpm_train_mean_logprob"] = tpm_train_mean_logprob
+                    _safe_mlflow(
+                        mlflow.log_metric,
+                        "tpm_train_mean_logprob",
+                        tpm_train_mean_logprob,
+                    )
 
                     # visualize the fit
                     _tpm_method = cfg.method.name
@@ -1289,7 +1342,8 @@ def run_experiment(cfg: DictConfig) -> None:
                 risk_level=cfg.risk_level,
             )
             build_duration = time.time() - build_start_time
-            mlflow.log_metric("build_duration", build_duration)
+            metrics["build_duration"] = build_duration
+            _safe_mlflow(mlflow.log_metric, "build_duration", build_duration)
 
             if tpm is not None and data_handler is not None:
                 log.info("Generating marginalized conditional plots...")
@@ -1314,25 +1368,31 @@ def run_experiment(cfg: DictConfig) -> None:
             solve_duration = time.time() - solve_start_time
 
             log.info(f"Result: {result}")
-            mlflow.log_metric("solve_duration", solve_duration)
-            mlflow.log_metric(
-                "total_duration", build_duration + solve_duration + tpm_train_duration
-            )
+            metrics["solve_duration"] = solve_duration
+            _safe_mlflow(mlflow.log_metric, "solve_duration", solve_duration)
+            total_duration = build_duration + solve_duration + tpm_train_duration
+            metrics["total_duration"] = total_duration
+            _safe_mlflow(mlflow.log_metric, "total_duration", total_duration)
 
             # Log solver status
             solver_status = str(result.get("status", "UNKNOWN"))
-            mlflow.set_tag("solver_status", solver_status)
+            metrics["solver_status"] = solver_status
+            _safe_mlflow(mlflow.set_tag, "solver_status", solver_status)
 
             if result["objective"] is not None:
-                mlflow.log_metric("objective", result["objective"])
+                metrics["objective"] = result["objective"]
+                _safe_mlflow(mlflow.log_metric, "objective", result["objective"])
 
             # If solver failed (infeasible/unbounded), mark run as failed
             if solver_status.lower() not in ["optimal", "ok", "success"]:
                 log.warning(f"Solver status is {solver_status}, marking run as failed.")
-                mlflow.set_tag("status", "FAILED")
-                mlflow.set_tag("error_type", "SOLVER_FAILURE")
-                mlflow.set_tag(
-                    "error_message", f"Solver returned status: {solver_status}"
+                metrics["status"] = "FAILED"
+                _safe_mlflow(mlflow.set_tag, "status", "FAILED")
+                _safe_mlflow(mlflow.set_tag, "error_type", "SOLVER_FAILURE")
+                _safe_mlflow(
+                    mlflow.set_tag,
+                    "error_message",
+                    f"Solver returned status: {solver_status}",
                 )
                 if result["objective"] is None:
                     return
@@ -1345,13 +1405,14 @@ def run_experiment(cfg: DictConfig) -> None:
                 x_sol = problem.get_solution()
                 # Log solution vector to mlflow
                 solution_dict = {f"x_{i}": float(x_sol[i]) for i in range(len(x_sol))}
-                mlflow.log_dict(solution_dict, "solution.json")
+                _safe_mlflow(mlflow.log_dict, solution_dict, "solution.json")
                 log.info(f"Solution: {x_sol}")
             except ValueError as e:
                 log.warning(f"Could not retrieve solution: {e}")
-                mlflow.set_tag("status", "FAILED")
-                mlflow.set_tag("error_type", "NO_SOLUTION")
-                mlflow.set_tag("error_message", str(e))
+                metrics["status"] = "FAILED"
+                _safe_mlflow(mlflow.set_tag, "status", "FAILED")
+                _safe_mlflow(mlflow.set_tag, "error_type", "NO_SOLUTION")
+                _safe_mlflow(mlflow.set_tag, "error_message", str(e))
                 return
 
             # test on new samples
@@ -1363,35 +1424,49 @@ def run_experiment(cfg: DictConfig) -> None:
             test_prob_satisfied = np.mean(test_satisfied)
 
             log.info(f"Test Satisfaction Probability: {test_prob_satisfied}")
-            mlflow.log_metric("test_prob_satisfied", test_prob_satisfied)
-            mlflow.log_metric("test_violation_prob", 1 - test_prob_satisfied)
+            metrics["test_prob_satisfied"] = float(test_prob_satisfied)
+            _safe_mlflow(mlflow.log_metric, "test_prob_satisfied", test_prob_satisfied)
+            metrics["test_violation_prob"] = float(1 - test_prob_satisfied)
+            _safe_mlflow(
+                mlflow.log_metric, "test_violation_prob", 1 - test_prob_satisfied
+            )
 
             try:
                 exact_prob = problem.get_exact_prob_satisfied(x_sol)
                 log.info(f"Exact Satisfaction Probability: {exact_prob}")
-                mlflow.log_metric("exact_prob_satisfied", exact_prob)
-                mlflow.log_metric("exact_violation_prob", 1 - exact_prob)
+                metrics["exact_prob_satisfied"] = float(exact_prob)
+                _safe_mlflow(mlflow.log_metric, "exact_prob_satisfied", exact_prob)
+                metrics["exact_violation_prob"] = float(1 - exact_prob)
+                _safe_mlflow(mlflow.log_metric, "exact_violation_prob", 1 - exact_prob)
             except NotImplementedError:
                 pass
 
             # Training set violation (in-sample)
             train_satisfied = problem.check_satisfaction(x_sol, train_samples)
             train_prob_satisfied = np.mean(train_satisfied)
-            mlflow.log_metric("train_prob_satisfied", train_prob_satisfied)
-            mlflow.log_metric("train_violation_prob", 1 - train_prob_satisfied)
+            metrics["train_prob_satisfied"] = float(train_prob_satisfied)
+            _safe_mlflow(
+                mlflow.log_metric, "train_prob_satisfied", train_prob_satisfied
+            )
+            metrics["train_violation_prob"] = float(1 - train_prob_satisfied)
+            _safe_mlflow(
+                mlflow.log_metric, "train_violation_prob", 1 - train_prob_satisfied
+            )
 
             # If TPM exists, log the probability of the solution
             if method_type == "nn_pm":
                 # NNPM: predict P(sat | x) directly
                 log.info("Calculating P(satisfied | x_sol) from NNPM...")
                 p_sat = float(nnpm.predict_prob(x_sol.reshape(1, -1))[0])
-                mlflow.log_metric("nn_prob_satisfied", p_sat)
+                metrics["nn_prob_satisfied"] = p_sat
+                _safe_mlflow(mlflow.log_metric, "nn_prob_satisfied", p_sat)
                 log.info(f"P(satisfied | x_sol) from NNPM: {p_sat}")
 
             elif method_type == "quantile_nn":
                 log.info("Calculating predicted quantile from QuantileNN...")
                 q_val = float(quantilenn.predict_quantile(x_sol.reshape(1, -1))[0])
-                mlflow.log_metric("qnn_pred_margin_quantile", q_val)
+                metrics["qnn_pred_margin_quantile"] = q_val
+                _safe_mlflow(mlflow.log_metric, "qnn_pred_margin_quantile", q_val)
                 log.info(f"Predicted margin quantile from QuantileNN: {q_val}")
 
             elif tpm is not None:
@@ -1401,13 +1476,15 @@ def run_experiment(cfg: DictConfig) -> None:
                 n_marg = tpm.data_handler.n_features - len(x_sol) - 1
                 x_sol = np.array([None] * n_marg + list(x_sol) + [1])
                 p_x_sol = tpm.log_probability(x_sol)
-                mlflow.log_metric(
+                true_tpm_prob = float(np.exp(p_x_sol - problem.x_log_density))
+                metrics["true_tpm_prob_satisfied"] = true_tpm_prob
+                _safe_mlflow(
+                    mlflow.log_metric,
                     "true_tpm_logprob_satisfied",
                     p_x_sol - problem.x_log_density,
                 )
-                mlflow.log_metric(
-                    "true_tpm_prob_satisfied",
-                    np.exp(p_x_sol - problem.x_log_density),
+                _safe_mlflow(
+                    mlflow.log_metric, "true_tpm_prob_satisfied", true_tpm_prob
                 )
                 log.info(
                     "P(satisfied | x_sol) from true TPM: "
@@ -1416,13 +1493,15 @@ def run_experiment(cfg: DictConfig) -> None:
                 # TODO make this somehow neat? also above, passing cfg is not ideal
                 # TODO check also the division by p(x) if not uniform
                 p_x_sol_approx = tpm.log_probability_approx(x_sol, **cfg.method)
-                mlflow.log_metric(
+                approx_tpm_prob = float(np.exp(p_x_sol_approx - problem.x_log_density))
+                metrics["approx_tpm_prob_satisfied"] = approx_tpm_prob
+                _safe_mlflow(
+                    mlflow.log_metric,
                     "approx_tpm_logprob_satisfied",
                     p_x_sol_approx - problem.x_log_density,
                 )
-                mlflow.log_metric(
-                    "approx_tpm_prob_satisfied",
-                    np.exp(p_x_sol_approx - problem.x_log_density),
+                _safe_mlflow(
+                    mlflow.log_metric, "approx_tpm_prob_satisfied", approx_tpm_prob
                 )
                 log.info(
                     "P(satisfied | x_sol) from approx TPM: "
@@ -1430,30 +1509,38 @@ def run_experiment(cfg: DictConfig) -> None:
                 )
 
             # Mark as successful
-            mlflow.set_tag("status", "SUCCESS")
+            metrics["status"] = "SUCCESS"
+            _safe_mlflow(mlflow.set_tag, "status", "SUCCESS")
             log.info("Experiment completed successfully")
 
         except MemoryError as e:
             log.error(f"Out of memory error: {e}")
-            mlflow.set_tag("status", "OOM")
-            mlflow.set_tag("error_type", "OUT_OF_MEMORY")
-            mlflow.set_tag("error_message", str(e))
+            metrics["status"] = "OOM"
+            _safe_mlflow(mlflow.set_tag, "status", "OOM")
+            _safe_mlflow(mlflow.set_tag, "error_type", "OUT_OF_MEMORY")
+            _safe_mlflow(mlflow.set_tag, "error_message", str(e))
             raise
 
         except TimeoutError as e:
             log.error(f"Timeout error: {e}")
-            mlflow.set_tag("status", "TIMEOUT")
-            mlflow.set_tag("error_type", "TIMEOUT")
-            mlflow.set_tag("error_message", str(e))
+            metrics["status"] = "TIMEOUT"
+            _safe_mlflow(mlflow.set_tag, "status", "TIMEOUT")
+            _safe_mlflow(mlflow.set_tag, "error_type", "TIMEOUT")
+            _safe_mlflow(mlflow.set_tag, "error_message", str(e))
             raise
 
         except Exception as e:
             log.error(f"Experiment failed with error: {e}", exc_info=True)
-            mlflow.set_tag("status", "FAILED")
-            mlflow.set_tag("error_type", type(e).__name__)
-            mlflow.set_tag("error_message", str(e))
+            metrics["status"] = "FAILED"
+            _safe_mlflow(mlflow.set_tag, "status", "FAILED")
+            _safe_mlflow(mlflow.set_tag, "error_type", type(e).__name__)
+            _safe_mlflow(mlflow.set_tag, "error_message", str(e))
             # Log full traceback
             import traceback
 
-            mlflow.log_text(traceback.format_exc(), "error_traceback.txt")
+            _safe_mlflow(mlflow.log_text, traceback.format_exc(), "error_traceback.txt")
             raise
+
+        finally:
+            metrics["run_folder"] = local_run_dir
+            _write_metrics(metrics, local_run_dir)

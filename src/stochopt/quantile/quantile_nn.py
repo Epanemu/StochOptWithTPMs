@@ -228,9 +228,12 @@ class QuantileNN:
                     )
 
                 if mlflow.active_run():
-                    mlflow.log_metric("qnn_train_loss", loss.item(), step=epoch)
-                    mlflow.log_metric("qnn_val_loss", val_loss.item(), step=epoch)
-                    mlflow.log_metric("qnn_val_mae", val_mae.item(), step=epoch)
+                    try:
+                        mlflow.log_metric("qnn_train_loss", loss.item(), step=epoch)
+                        mlflow.log_metric("qnn_val_loss", val_loss.item(), step=epoch)
+                        mlflow.log_metric("qnn_val_mae", val_mae.item(), step=epoch)
+                    except Exception as exc:
+                        logger.warning(f"MLflow logging failed: {exc}")
 
                 if val_loss.item() < best_val_loss:
                     best_val_loss = val_loss.item()
@@ -251,8 +254,11 @@ class QuantileNN:
                     )
 
         if mlflow.active_run():
-            mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
-            mlflow.log_metric("best_val_loss", best_val_loss)
+            try:
+                mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
+                mlflow.log_metric("best_val_loss", best_val_loss)
+            except Exception as exc:
+                logger.warning(f"MLflow logging failed: {exc}")
 
         # Load best checkpoint
         if os.path.exists(best_checkpoint_path):

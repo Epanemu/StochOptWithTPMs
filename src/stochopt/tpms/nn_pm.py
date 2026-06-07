@@ -264,10 +264,13 @@ class NNPM:
                     val_mae = (val_preds - val_sat_t).abs().mean()
 
                 if mlflow.active_run():
-                    mlflow.log_metric("nn_train_loss", loss.item(), step=epoch)
-                    mlflow.log_metric("nn_val_loss", val_loss.item(), step=epoch)
-                    # mlflow.log_metric("nn_val_accuracy", val_acc.item(), step=epoch)
-                    mlflow.log_metric("nn_val_mae", val_mae.item(), step=epoch)
+                    try:
+                        mlflow.log_metric("nn_train_loss", loss.item(), step=epoch)
+                        mlflow.log_metric("nn_val_loss", val_loss.item(), step=epoch)
+                        # mlflow.log_metric("nn_val_accuracy", val_acc.item(), step=epoch)
+                        mlflow.log_metric("nn_val_mae", val_mae.item(), step=epoch)
+                    except Exception as exc:
+                        logger.warning(f"MLflow logging failed: {exc}")
                 if val_loss.item() < best_val_loss:
                     best_val_loss = val_loss.item()
                     torch.save(
@@ -287,8 +290,11 @@ class NNPM:
                     )
 
         if mlflow.active_run():
-            mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
-            mlflow.log_metric("best_val_loss", best_val_loss)
+            try:
+                mlflow.log_artifact(best_checkpoint_path, artifact_path="checkpoints")
+                mlflow.log_metric("best_val_loss", best_val_loss)
+            except Exception as exc:
+                logger.warning(f"MLflow logging failed: {exc}")
 
         # Store input bounds
         margin = (bounds_max - bounds_min) * 0.01 + 1e-6
